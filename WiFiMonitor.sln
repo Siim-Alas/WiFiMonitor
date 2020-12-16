@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WPFUI", "WPFUI\WPFUI.csproj", "{F8045515-ED49-40FA-BCE8-7B5B5BCE6BA9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleUI", "ConsoleUI\ConsoleUI.csproj", "{2A2C5E65-A488-471C-B8ED-67E78E7CCA55}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WiFiMonitorClassLibrary", "WiFiMonitorClassLibrary\WiFiMonitorClassLibrary.csproj", "{D59094A8-B005-4DF2-9CAB-125A897DEFEE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F8045515-ED49-40FA-BCE8-7B5B5BCE6BA9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8045515-ED49-40FA-BCE8-7B5B5BCE6BA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8045515-ED49-40FA-BCE8-7B5B5BCE6BA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8045515-ED49-40FA-BCE8-7B5B5BCE6BA9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2A2C5E65-A488-471C-B8ED-67E78E7CCA55}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2A2C5E65-A488-471C-B8ED-67E78E7CCA55}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2A2C5E65-A488-471C-B8ED-67E78E7CCA55}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2A2C5E65-A488-471C-B8ED-67E78E7CCA55}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D59094A8-B005-4DF2-9CAB-125A897DEFEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D59094A8-B005-4DF2-9CAB-125A897DEFEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D59094A8-B005-4DF2-9CAB-125A897DEFEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D59094A8-B005-4DF2-9CAB-125A897DEFEE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A341D78A-93BE-4D29-A66C-87F79FFA07B7}
+	EndGlobalSection
+EndGlobal
