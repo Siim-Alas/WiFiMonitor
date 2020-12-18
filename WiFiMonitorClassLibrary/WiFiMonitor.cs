@@ -1,4 +1,6 @@
-﻿using System;
+﻿using PacketDotNet;
+using System;
+using System.Collections.Generic;
 using SharpPcap;
 using SharpPcap.LibPcap;
 using SharpPcap.Npcap;
@@ -27,6 +29,7 @@ namespace WiFiMonitorClassLibrary
         }
 
         public CaptureDeviceList CaptureDevices { get; private set; }
+        public List<Packet> CapturedPackets { get; private set; } = new List<Packet>();
 
         /// <summary>
         /// Begins capturing WiFi packets on all devices available at the time of method call.
@@ -71,7 +74,15 @@ namespace WiFiMonitorClassLibrary
         /// <param name="e"></param>
         private void HandlePacketArrival(object sender, CaptureEventArgs e)
         {
-            PacketArrived?.Invoke(this, new PacketArrivedEventArgs($"{e.Device.Description} captured {e.Packet}"));
+            LinkLayers linkLayerType = 
+                (e.Packet.LinkLayerType == LinkLayers.Null) ? LinkLayers.Ieee80211 : e.Packet.LinkLayerType;
+            try
+            {
+                Packet packet = Packet.ParsePacket(linkLayerType, e.Packet.Data);
+                CapturedPackets.Add(packet);
+                PacketArrived?.Invoke(this, new PacketArrivedEventArgs(packet));
+            }
+            catch { }
         }
         /// <summary>
         /// Start capturing packets on the given device.
@@ -89,7 +100,8 @@ namespace WiFiMonitorClassLibrary
             if (device is NpcapDevice)
             {
                 var nPcap = device as NpcapDevice;
-                nPcap.Open(OpenFlags.DataTransferUdp | OpenFlags.NoCaptureLocal, _readTimeout);
+                // nPcap.Open(OpenFlags.DataTransferUdp | OpenFlags.NoCaptureLocal, _readTimeout);
+                nPcap.Open(OpenFlags.Promiscuous, _readTimeout);
             }
             else if (device is LibPcapLiveDevice)
             {

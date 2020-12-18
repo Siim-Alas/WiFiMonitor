@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PacketDotNet;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -8,13 +9,13 @@ namespace WiFiMonitorClassLibrary
     {
         public PacketArrivedEventArgs()
         {
-            Bla = "bla";
+            
         }
-        public PacketArrivedEventArgs(string bla)
+        public PacketArrivedEventArgs(Packet arrivedPacket)
         {
-            Bla = bla;
+            ArrivedPacket = arrivedPacket;
         }
 
-        public string Bla { get; }
+        public Packet ArrivedPacket { get; }
     }
 }

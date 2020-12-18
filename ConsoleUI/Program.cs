@@ -1,4 +1,6 @@
-﻿using System;
+﻿using PacketDotNet;
+using PacketDotNet.Ieee80211;
+using System;
 using WiFiMonitorClassLibrary;
 
 namespace ConsoleUI
@@ -12,7 +14,15 @@ namespace ConsoleUI
             using WiFiMonitor wiFiMonitor = new WiFiMonitor();
             wiFiMonitor.PacketArrived += (object sender, PacketArrivedEventArgs e) => 
             {
-                Console.WriteLine(e.Bla);
+                if (e.ArrivedPacket is MacFrame)
+                {
+                    MacFrame macFrame = e.ArrivedPacket as MacFrame;
+                    Console.WriteLine($"Captured ieee802.11 packet of type {macFrame.FrameControl.Type}");
+                }
+                else
+                {
+                    Console.WriteLine(e.ArrivedPacket.GetType());
+                }
             };
             wiFiMonitor.BeginCapture();
 

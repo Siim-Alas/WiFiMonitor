@@ -9,3 +9,5 @@ library, and thus also this library, requires the end-user to install the follow
 
 * [Libpcap](http://www.tcpdump.org/manpages/pcap.3pcap.html) for Linux users
 * [Npcap](https://nmap.org/npcap/) for Windows users
+
+The respective libraries would be included here if it were not for copyright concerns.
