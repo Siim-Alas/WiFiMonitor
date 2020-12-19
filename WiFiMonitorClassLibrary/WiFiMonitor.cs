@@ -45,7 +45,11 @@ namespace WiFiMonitorClassLibrary
 
             for (int i = 0; i < CaptureDevices.Count; i++)
             {
-                StartCaptureOnDevice(CaptureDevices[i]);
+                try 
+                {
+                    StartCaptureOnDevice(CaptureDevices[i]);
+                }
+                catch { }
             }
 
             _capturing = true;
@@ -77,7 +81,8 @@ namespace WiFiMonitorClassLibrary
             Packet packet;
             try
             {
-                // This will throw NotImplementedException if the packet has unsupported LinkLayerType
+                // This will throw NotImplementedException if the packet has 
+                // unsupported LinkLayerType
                 packet = Packet.ParsePacket(e.Packet.LinkLayerType, e.Packet.Data);
             } catch (NotImplementedException)
             {
@@ -93,7 +98,8 @@ namespace WiFiMonitorClassLibrary
         /// <param name="device">The device on which to start capturing packets.</param>
         private void StartCaptureOnDevice(ICaptureDevice device)
         {
-            // The following code is taken and modified from SharpPcap's Github repository's example 'BasicCap'
+            // The following code is taken and modified from SharpPcap's Github repository's 
+            // example 'BasicCap'
             // https://github.com/chmorgan/sharppcap/blob/master/Examples/Example3.BasicCap/Program.cs
 
             device.OnPacketArrival += HandlePacketArrival;
