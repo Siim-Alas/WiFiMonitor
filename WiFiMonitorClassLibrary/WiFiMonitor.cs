@@ -74,15 +74,18 @@ namespace WiFiMonitorClassLibrary
         /// <param name="e"></param>
         private void HandlePacketArrival(object sender, CaptureEventArgs e)
         {
-            LinkLayers linkLayerType = 
-                (e.Packet.LinkLayerType == LinkLayers.Null) ? LinkLayers.Ieee80211 : e.Packet.LinkLayerType;
+            Packet packet;
             try
             {
-                Packet packet = Packet.ParsePacket(linkLayerType, e.Packet.Data);
-                CapturedPackets.Add(packet);
-                PacketArrived?.Invoke(this, new PacketArrivedEventArgs(packet));
+                // This will throw NotImplementedException if the packet has unsupported LinkLayerType
+                packet = Packet.ParsePacket(e.Packet.LinkLayerType, e.Packet.Data);
+            } catch (NotImplementedException)
+            {
+                packet = null;
             }
-            catch { }
+
+            CapturedPackets.Add(packet);
+            PacketArrived(this, new PacketArrivedEventArgs(packet));
         }
         /// <summary>
         /// Start capturing packets on the given device.
@@ -93,7 +96,6 @@ namespace WiFiMonitorClassLibrary
             // The following code is taken and modified from SharpPcap's Github repository's example 'BasicCap'
             // https://github.com/chmorgan/sharppcap/blob/master/Examples/Example3.BasicCap/Program.cs
 
-            // Register our handler function to the 'packet arrival' event
             device.OnPacketArrival += HandlePacketArrival;
 
             // Open the device for capturing
@@ -113,7 +115,7 @@ namespace WiFiMonitorClassLibrary
                 throw new InvalidOperationException($"Unknown device type of {device.GetType()}");
             }
 
-            // Actually start the capturing proccess
+            // Start the capturing proccess
             device.StartCapture();
         }
         /// <summary>

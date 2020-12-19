@@ -17,7 +17,9 @@ namespace ConsoleUI
                 if (e.ArrivedPacket is MacFrame)
                 {
                     MacFrame macFrame = e.ArrivedPacket as MacFrame;
-                    Console.WriteLine($"Captured ieee802.11 packet of type {macFrame.FrameControl.Type}");
+                    Console.WriteLine($"\n\n{macFrame}");
+                    Console.WriteLine($"Frame size: {macFrame.FrameSize}");
+                    Console.WriteLine($"FCS valid: {macFrame.FcsValid}");
                 }
                 else
                 {
@@ -32,6 +34,7 @@ namespace ConsoleUI
             {
                 Console.WriteLine(
                     $"{i + 1}) {wiFiMonitor.CaptureDevices[i].Name} -- {wiFiMonitor.CaptureDevices[i].Description}");
+                Console.WriteLine($"Link layer type: {wiFiMonitor.CaptureDevices[i].LinkType}");
             }
 
             Console.ReadLine();
