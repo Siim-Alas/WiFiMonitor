@@ -9,8 +9,6 @@ namespace ConsoleUI
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
-            
             using WiFiMonitor wiFiMonitor = new WiFiMonitor();
             wiFiMonitor.PacketArrived += (object sender, PacketArrivedEventArgs e) => 
             {
@@ -23,7 +21,7 @@ namespace ConsoleUI
                 }
                 else
                 {
-                    Console.WriteLine(e.ArrivedPacket.GetType());
+                    Console.WriteLine(e.ArrivedPacket?.GetType());
                 }
             };
             wiFiMonitor.BeginCapture();
