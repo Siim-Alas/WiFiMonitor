@@ -20,7 +20,7 @@ namespace WiFiMonitorClassLibrary
         public event PacketArrivedEventHandler PacketArrived;
 
         /// <summary>
-        /// Creates a new instance of WiFiMonitor
+        /// Creates a new instance of WiFiMonitor.
         /// </summary>
         /// <param name="readTimeout">The timeout for reading packets.</param>
         public WiFiMonitor(int readTimeout = 1000)

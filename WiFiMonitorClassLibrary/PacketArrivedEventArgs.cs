@@ -1,7 +1,5 @@
 ﻿using PacketDotNet;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace WiFiMonitorClassLibrary
 {
