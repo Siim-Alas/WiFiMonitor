@@ -23,7 +23,8 @@ namespace WiFiMonitorClassLibrary
         /// The pairwise master key (PMK) established between the sender and the destination.
         /// </param>
         /// <param name="nonceA">
-        /// A Nonce established between the sender and destination stations during the 4-way handshake.
+        /// A Nonce established between the sender and destination stations during the 4-way 
+        /// handshake.
         /// </param>
         /// <param name="nonceB">
         /// The other Nonce established between the sender and destination stations during the 4-way 
