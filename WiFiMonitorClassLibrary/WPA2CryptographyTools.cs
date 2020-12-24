@@ -4,35 +4,49 @@ using System.Text;
 
 namespace WiFiMonitorClassLibrary
 {
+    /// <summary>
+    /// Provides methods specific to WPA2 cryptography using CCMP.
+    /// </summary>
     public static class WPA2CryptographyTools
     {
         /// <summary>
-        /// The flag (first 8 bits) used in creating the initial CCMP counter.
-        /// The "numbers only used once" provided needn't be in any particular order.
+        /// The flag (first byte or 8 bits) used in creating the initial RSN CCMP counter.
         /// </summary>
-        private readonly static byte _flag = 0b_0101_1001;
+        private readonly static byte _RSNFlag = 0b_0101_1001;
         /// <summary>
         /// Decrypts a PacketDotNet IEEE 802.11 DataFrame (containing one MPDU)
-        /// using CCMP decryption.
+        /// using CCMP decryption. The "numbers only used once" provided needn't 
+        /// be in any particular order.
         /// </summary>
-        /// <param name="frameToDecrypt">The frame to decrypt.</param>
+        /// <param name="frameToDecrypt">The frame which will get its PayloadData decrypted.</param>
         /// <param name="pairwiseMasterKey">
-        /// One pairwise master key (PMK) established between the sender and the recipient.
+        /// The pairwise master key (PMK) established between the sender and the destination.
         /// </param>
-        /// <param name="nonceA">One Nonce.</param>
-        /// <param name="nonceB">The other Nonce.</param>
-        /// <returns>The decrypted MPDU.</returns>
-        public static T CCMPDecryptMPDU<T>(
-            T frameToDecrypt, 
+        /// <param name="nonceA">
+        /// A Nonce established between the sender and destination stations during the 4-way handshake.
+        /// </param>
+        /// <param name="nonceB">
+        /// The other Nonce established between the sender and destination stations during the 4-way 
+        /// handshake.
+        /// </param>
+        public static void CCMPDecryptDataFrame<T>(
+            ref T frameToDecrypt, 
             byte[] pairwiseMasterKey, 
             byte[] nonceA,
-            byte[] nonceB) 
+            byte[] nonceB)
         where T : DataFrame
         {
             if (frameToDecrypt.FrameControl.Protected == false)
             {
-                return frameToDecrypt;
+                return;
             }
+
+            byte[] pairwiseTemporalKey = GeneratePairwiseTemporalKey(
+                pairwiseMasterKey,
+                frameToDecrypt.DestinationAddress.GetAddressBytes(),
+                frameToDecrypt.SourceAddress.GetAddressBytes(),
+                nonceA,
+                nonceB);
 
             CCMPHeader ccmpHeader = new CCMPHeader(frameToDecrypt);
             // Everything from right after the CCMP header up until the FCS is encrypted
@@ -44,28 +58,21 @@ namespace WiFiMonitorClassLibrary
 
             byte[] initialCounter = GenerateCCMPInitialCounter(nonce);
 
-            byte[] pairwiseTemporalKey = GeneratePairwiseTemporalKey(
-                pairwiseMasterKey,
-                frameToDecrypt.DestinationAddress.GetAddressBytes(),
-                frameToDecrypt.SourceAddress.GetAddressBytes(),
-                nonceA,
-                nonceB);
-
             byte[] decryptedBytes = CryptographyWrapper.AESCounterModeDecryptBytes(
                 encryptedSection, pairwiseTemporalKey, initialCounter);
 
-            throw new NotImplementedException();
+            decryptedBytes.CopyTo(frameToDecrypt.PayloadData, ccmpHeader.Bytes.Length);
         }
         /// <summary>
-        /// Generates the 104-bit "number used only once" used in the CCMP encryption of both the
-        /// frame MPDU data and MIC section.
+        /// Generates the 104-bit (13-byte) "number used only once" used in the CCMP encryption 
+        /// of both the frame MPDU data and MIC section.
         /// </summary>
         /// <param name="priority">
         /// The priority of the packet, potentially different for various transmitted data types.
         /// </param>
         /// <param name="sourceMACAddress">The MAC address of the source of the frame.</param>
         /// <param name="packetNumber">The packet number of the frame</param>
-        /// <returns>The 104-bit Nonce, stored in a byte array on length 13.</returns>
+        /// <returns>The Nonce.</returns>
         private static byte[] Generate104BitNonce(
             byte priority, 
             byte[] sourceMACAddress, 
@@ -79,26 +86,26 @@ namespace WiFiMonitorClassLibrary
         }
         /// <summary>
         /// Generates the value of the initial CCMP counter (the first 128-bit block CCMP uses in 
-        /// encrypting the message).
+        /// encrypting the message with AES Counter (CTR) mode).
         /// </summary>
         /// <param name="nonce">
-        /// The 104-bit "number used only once" used in creating the initial counter.
+        /// The 104-bit (13-byte) "number used only once" used in creating the initial counter.
         /// </param>
-        /// <returns>The 128-bit CCMP initial counter.</returns>
+        /// <returns>The 128-bit (16-byte) CCMP initial counter.</returns>
         private static byte[] GenerateCCMPInitialCounter(byte[] nonce)
         {
             byte[] ctr = BitConverter.GetBytes((ushort)1); // 1 as an unsigned 16-bit (2-byte) integer
 
             byte[] counter = new byte[128 / 8];
-            counter[0] = _flag;
+            counter[0] = _RSNFlag;
             nonce.CopyTo(counter, 1);
             ctr.CopyTo(counter, counter.Length - 3);
 
             return counter;
         }
         /// <summary>
-        /// Generates the pairwise temporal key (PTK). The provided MAC addresses and 
-        /// Nonces needn't be in any particular order.
+        /// Generates the 512-bit (64-byte) pairwise temporal key (PTK). The provided MAC addresses
+        /// and Nonces needn't be in any particular order.
         /// </summary>
         /// <param name="pairwiseMasterKey">The pairwise master key (PMK).</param>
         /// <param name="MACA">The first MAC address.</param>

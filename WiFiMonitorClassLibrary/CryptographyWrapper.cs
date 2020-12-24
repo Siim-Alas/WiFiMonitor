@@ -71,15 +71,12 @@ namespace WiFiMonitorClassLibrary
             return decryptedBytes;
         }
         /// <summary>
-        /// Decrypts a byte array with the AES Counter decryption algorithm.
+        /// Decrypts a byte array with the AES Counter (CTR) mode decryption algorithm.
         /// </summary>
-        /// <param name="bytesToDecrypt">
-        /// The byte array to be decrypted, assumed to have a length divisible by the block size 
-        /// used during encryption (128 bits or 16 bytes for CCMP).
-        /// </param>
+        /// <param name="bytesToDecrypt">The byte array to be decrypted.</param>
         /// <param name="key">The key used during encryption.</param>
         /// <param name="counterBlock">
-        /// The first block used during encryption, assumed to be equal in length to the block
+        /// The first block used during encryption, which has to be equal in length to the block
         /// size used during encryption (128 bits or 16 bytes for CCMP). It will get mutated
         /// during encryption.
         /// </param>
@@ -90,15 +87,23 @@ namespace WiFiMonitorClassLibrary
             byte[] counterBlock)
         {
             // Inspired by https://gist.github.com/hanswolff/8809275
-            using Aes aesAlg = new AesManaged()
-            {
-                Mode = CipherMode.ECB,
-                Padding = PaddingMode.None
-            };
             int blockSizeInBytes = 128 / 8;
+            if (counterBlock.Length != blockSizeInBytes)
+            {
+                throw new ArgumentException(
+                    "The counterBlock provided isn't 128 bits or 16 bytes long.");
+            }
+
             byte[] encryptedCounterBlock = new byte[blockSizeInBytes];
             byte[] decryptedBytes = new byte[bytesToDecrypt.Length];
 
+            using Aes aesAlg = new AesManaged()
+            {
+                // AesManaged defaults to 128-bit block size
+                Mode = CipherMode.ECB,
+                Padding = PaddingMode.None
+            };
+            // Integer division rounds towards zero, so this will omit any partial block at the end
             for (int i = 0; i < bytesToDecrypt.Length / blockSizeInBytes; i++)
             {
                 // Encrypt the counter block in ECB mode
@@ -114,15 +119,59 @@ namespace WiFiMonitorClassLibrary
                 }
                 // j is now set to blockSizeInBytes.
 
-                // Starting from the last byte in counterBlock, increment by one. 
+                // Starting from the last byte in counterBlock, increment the counter by one. 
                 // If the byte overflows, go to the next byte (coming from the end).
                 while(++counterBlock[--j] == 0) { }
+            }
+
+            // In case there is any partial block left at the end, decrypt that as well
+            int lastBlockLengthInBytes = bytesToDecrypt.Length % blockSizeInBytes;
+            if (lastBlockLengthInBytes != 0)
+            {
+                using ICryptoTransform transform = aesAlg.CreateEncryptor(key, counterBlock);
+                transform.TransformBlock(
+                    counterBlock, 0, lastBlockLengthInBytes, encryptedCounterBlock, 0);
+
+                for (int j = 0; j < lastBlockLengthInBytes; j++)
+                {
+                    decryptedBytes[(bytesToDecrypt.Length - lastBlockLengthInBytes) + j] =
+                        (byte)(encryptedCounterBlock[j] | bytesToDecrypt[j]);
+                }
             }
 
             return decryptedBytes;
         }
         /// <summary>
-        /// Pseudo-random function to produce n bits.
+        /// Password-Based Key Derivation Function 2, used among others by WPA2 to derive the PSK
+        /// from the Access point password. This implementation uses HMAC-SHA1 as the Pseudo-Random 
+        /// Function (PRF).
+        /// </summary>
+        /// <param name="password">
+        /// The password used to derive the key. In the case of WPA2, this is the password of the
+        /// Access Point (AP) to which the Station (STA) is connecting.
+        /// </param>
+        /// <param name="salt">
+        /// The "cryptographic salt" used to derive the key, the bssid in the case of WPA2.
+        /// </param>
+        /// <param name="numberOfIterations">
+        /// The number of iterations performed by the function, 4096 in the case of WPA2.
+        /// </param>
+        /// <param name="keyLengthInBytes">
+        /// The length of the derived key in bytes, 32 (representing 256 bits) in the case of WPA2.
+        /// </param>
+        /// <returns></returns>
+        public static byte[] PBKDF2(
+            string password, 
+            byte[] salt, 
+            int numberOfIterations = 4096, 
+            int keyLengthInBytes = 32)
+        {
+            using Rfc2898DeriveBytes encryptor = 
+                new Rfc2898DeriveBytes(password, salt, numberOfIterations);
+            return encryptor.GetBytes(keyLengthInBytes);
+        }
+        /// <summary>
+        /// Pseudo-Random Function to produce n bits.
         /// </summary>
         /// <param name="n">The amount of bits to produce.</param>
         /// <param name="secretKey">K, the secret key used in producing the bits.</param>
