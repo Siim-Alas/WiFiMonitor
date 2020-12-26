@@ -1,5 +1,6 @@
 using PacketDotNet.Ieee80211;
 using System;
+using System.Linq;
 using System.Text;
 
 namespace WiFiMonitorClassLibrary
@@ -10,9 +11,24 @@ namespace WiFiMonitorClassLibrary
     public static class WPA2CryptographyTools
     {
         /// <summary>
+        /// All IEEE 802.11 Data frames carry an LLC header in the frame body, right after
+        /// the MAC header. This value indicates an IEEE 802.1X Authentication frame.
+        /// </summary>
+        private readonly static byte[] _IEEE8021XAuthHeader = new byte[] {
+            0xAA,             // IEEE 802.2 LLC Header: DSAP = SNAP extension used
+            0xAA,             // IEEE 802.2 LLC Header: SSAP = SNAP extension used
+            0x03,             // IEEE 802.2 LLC Header: Control = Unnumbered Format PDU
+            0x00, 0x00, 0x00, // SNAP Extension: OUI = 0x000000
+            0x88, 0x8E        // SNAP Extension: Protocol ID = IEEE 802.1X Authentication
+        };
+        /// <summary>
         /// The flag (first byte or 8 bits) used in creating the initial RSN CCMP counter.
         /// </summary>
         private readonly static byte _RSNFlag = 0b_0101_1001;
+        /// <summary>
+        /// The EAPOL Key Descriptor Type field value indicating an RSN WPA2 key.
+        /// </summary>
+        private readonly static byte _WPA2EapolKeyDescriptorType = 2;
         /// <summary>
         /// Decrypts a PacketDotNet IEEE 802.11 DataFrame (containing one MPDU)
         /// using CCMP decryption. The "numbers only used once" provided needn't 
@@ -140,6 +156,40 @@ namespace WiFiMonitorClassLibrary
                 specificData);
 
             return temporalKey;
+        }
+        /// <summary>
+        /// Tries to extract an EAPOLKeyFormat from the provided PacketDotNet IEEE 802.11 DataFrame.
+        /// </summary>
+        /// <param name="frame">The frame from which to extract the EAPOLKeyFormat.</param>
+        /// <returns>The EAPOLKeyFormat, if it can be extracted. Otherwise, null.</returns>
+        public static EAPOLKeyFormat TryGetEAPOLKeyFromDataFrame(DataFrame frame)
+        {
+            if (frame.PayloadData.Length < 95 + _IEEE8021XAuthHeader.Length)
+            {
+                // The frame is too short
+                return null;
+            }
+            if (frame.PayloadData[_IEEE8021XAuthHeader.Length] != _WPA2EapolKeyDescriptorType)
+            {
+                // The frame is not an RSN WPA2 key frame
+                return null;
+            }
+            if (Enumerable.SequenceEqual(frame.PayloadData[0..9], _IEEE8021XAuthHeader) == false)
+            {
+                // The frame is not an IEEE 802.1X Authentication frame
+                return null;
+            }
+
+            EAPOLKeyFormat keyFormat = 
+                new EAPOLKeyFormat(frame.PayloadData[_IEEE8021XAuthHeader.Length..]);
+
+            if (keyFormat.KeyData.Length != keyFormat.KeyDataLength)
+            {
+                // The KeyDataLength field is invalid
+                return null;
+            }
+
+            return keyFormat;
         }
     }
 }

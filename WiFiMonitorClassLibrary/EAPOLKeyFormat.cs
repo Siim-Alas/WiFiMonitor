@@ -7,20 +7,14 @@ namespace WiFiMonitorClassLibrary
         public EAPOLKeyFormat(byte[] rawBytes)
         {
             Bytes = rawBytes;
-            
-            if (KeyData.Length != KeyDataLength)
-            {
-                throw new ArgumentException("The provided rawBytes are in incorrect format.");
-            }
-
             KeyInformation = new EAPOLKeyInformationField(rawBytes[1..3]);
         }
-        public byte[] Bytes;
+        public readonly byte[] Bytes;
         public int DescryptorType
         {
             get { return Bytes[0]; }
         }
-        public EAPOLKeyInformationField KeyInformation;
+        public readonly EAPOLKeyInformationField KeyInformation;
         public uint KeyLength
         {
             get 
@@ -51,25 +45,25 @@ namespace WiFiMonitorClassLibrary
         }
         public byte[] EAPOLKeyIV
         {
-            get { return Bytes[45..51]; }
+            get { return Bytes[45..61]; }
         }
         public byte[] KeyReceiveSequenceCounter
         {
-            get { return Bytes[51..59]; }
+            get { return Bytes[61..69]; }
         }
         public byte[] KeyIdentifier
         {
-            get { return Bytes[59..67]; }
+            get { return Bytes[69..77]; }
         }
         public byte[] KeyMIC
         {
-            get { return Bytes[67..83]; }
+            get { return Bytes[77..93]; }
         }
         public uint KeyDataLength
         {
             get 
             { 
-                byte[] kdl = Bytes[83..85];
+                byte[] kdl = Bytes[93..95];
                 if (BitConverter.IsLittleEndian)
                 {
                     Array.Reverse(kdl);
@@ -79,7 +73,22 @@ namespace WiFiMonitorClassLibrary
         }
         public byte[] KeyData
         {
-            get { return (Bytes.Length > 85) ? Bytes[85..] : new byte[0]; }
+            get { return Bytes[95..]; }
+        }
+        public bool IsValid
+        {
+            get 
+            {
+                if (Bytes.Length < 95)
+                {
+                    return false;
+                }
+                if (KeyData.Length != KeyDataLength)
+                {
+                    return false;
+                }
+                return true;
+            }
         }
     }
 }

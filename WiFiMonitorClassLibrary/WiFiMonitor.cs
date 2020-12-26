@@ -84,7 +84,8 @@ namespace WiFiMonitorClassLibrary
                 // This will throw NotImplementedException if the packet has 
                 // unsupported LinkLayerType
                 packet = Packet.ParsePacket(e.Packet.LinkLayerType, e.Packet.Data);
-            } catch (NotImplementedException)
+            } 
+            catch // (NotImplementedException)
             {
                 packet = null;
             }
@@ -114,7 +115,7 @@ namespace WiFiMonitorClassLibrary
             else if (device is LibPcapLiveDevice)
             {
                 var livePcapDevice = device as LibPcapLiveDevice;
-                livePcapDevice.Open(DeviceMode.Promiscuous, _readTimeout);
+                livePcapDevice.Open(DeviceMode.Promiscuous, _readTimeout, MonitorMode.Active);
             }
             else
             {
