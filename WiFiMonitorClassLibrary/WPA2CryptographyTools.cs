@@ -11,8 +11,9 @@ namespace WiFiMonitorClassLibrary
     public static class WPA2CryptographyTools
     {
         /// <summary>
-        /// All IEEE 802.11 Data frames carry an LLC header in the frame body, right after
-        /// the MAC header. This value indicates an IEEE 802.1X Authentication frame.
+        /// All IEEE 802.11 Data frames carry an IEEE 802.2 LLC header in the frame body, 
+        /// right after the MAC header. This header value indicates an IEEE 802.1X 
+        /// Authentication frame.
         /// </summary>
         private readonly static byte[] _IEEE8021XAuthHeader = new byte[] {
             0xAA,             // IEEE 802.2 LLC Header: DSAP = SNAP extension used
@@ -29,6 +30,10 @@ namespace WiFiMonitorClassLibrary
         /// The EAPOL Key Descriptor Type field value indicating an RSN WPA2 key.
         /// </summary>
         private readonly static byte _WPA2EapolKeyDescriptorType = 2;
+        /// <summary>
+        /// The EAPOL Key Descriptor Type field value indicating an RSN WPA key.
+        /// </summary>
+        private readonly static byte _WPAEapolKeyDescriptorType = 254;
         /// <summary>
         /// Decrypts a PacketDotNet IEEE 802.11 DataFrame (containing one MPDU)
         /// using CCMP decryption. The "numbers only used once" provided needn't 
@@ -169,9 +174,10 @@ namespace WiFiMonitorClassLibrary
                 // The frame is too short
                 return null;
             }
-            if (frame.PayloadData[_IEEE8021XAuthHeader.Length] != _WPA2EapolKeyDescriptorType)
+            if ((frame.PayloadData[_IEEE8021XAuthHeader.Length] != _WPA2EapolKeyDescriptorType) ||
+                (frame.PayloadData[_IEEE8021XAuthHeader.Length] != _WPAEapolKeyDescriptorType))
             {
-                // The frame is not an RSN WPA2 key frame
+                // The frame is not an RSN WPA2 or WPA key frame
                 return null;
             }
             if (Enumerable.SequenceEqual(frame.PayloadData[0..9], _IEEE8021XAuthHeader) == false)
