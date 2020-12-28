@@ -51,12 +51,11 @@ namespace WiFiMonitorClassLibrary
         /// The other Nonce established between the sender and destination stations during the 4-way 
         /// handshake.
         /// </param>
-        public static void CCMPDecryptDataFrame<T>(
-            ref T frameToDecrypt, 
+        public static void CCMPDecryptDataFrame(
+            ref DataFrame frameToDecrypt, 
             byte[] pairwiseMasterKey, 
             byte[] nonceA,
             byte[] nonceB)
-        where T : DataFrame
         {
             if (frameToDecrypt.FrameControl.Protected == false)
             {
@@ -164,34 +163,74 @@ namespace WiFiMonitorClassLibrary
         }
         /// <summary>
         /// Tries to extract an EAPOLKeyFormat from the provided PacketDotNet IEEE 802.11 DataFrame.
+        /// The body of a data frame carrying EAPOL data is formatted as follows: <br />
+        /// 3 bytes (0-2) -- IEEE 802.2 LLC header <br />
+        /// 5 bytes (3-7) -- SNAP Extension <br />
+        /// 4 bytes (8-11) -- EAPOL MPDU header <br />
+        /// n bytes (12-...) -- EAPOL MPDU Body
         /// </summary>
         /// <param name="frame">The frame from which to extract the EAPOLKeyFormat.</param>
         /// <returns>The EAPOLKeyFormat, if it can be extracted. Otherwise, null.</returns>
         public static EAPOLKeyFormat TryGetEAPOLKeyFromDataFrame(DataFrame frame)
         {
-            if (frame.PayloadData.Length < 95 + _IEEE8021XAuthHeader.Length)
+            byte[] data = frame.Bytes[frame.FrameSize..^4];
+
+            if (data.Length < 95 + 4 + _IEEE8021XAuthHeader.Length)
             {
-                // The frame is too short
+                // The data frame body is too short
+                Console.WriteLine("too short");
                 return null;
             }
-            if ((frame.PayloadData[_IEEE8021XAuthHeader.Length] != _WPA2EapolKeyDescriptorType) ||
-                (frame.PayloadData[_IEEE8021XAuthHeader.Length] != _WPAEapolKeyDescriptorType))
+            if (HelperMethods.CompareBuffers(
+                    _IEEE8021XAuthHeader, data[0.._IEEE8021XAuthHeader.Length]) != 0)
             {
-                // The frame is not an RSN WPA2 or WPA key frame
+                // The frame is not an IEEE 802.1X Authentication frame (invalid header)
+                Console.WriteLine("invalid header");
                 return null;
             }
-            if (Enumerable.SequenceEqual(frame.PayloadData[0..9], _IEEE8021XAuthHeader) == false)
+            if (data[_IEEE8021XAuthHeader.Length] != 2)
             {
-                // The frame is not an IEEE 802.1X Authentication frame
+                // The protocol version in the EAPOL MPDU header is not 2
+                Console.WriteLine("invalid protocol version");
+                return null;
+            }
+            if (data[_IEEE8021XAuthHeader.Length + 1] != 3)
+            {
+                // The EAP Code in the EAPOL MPDU header is not 3 (EAPOL-Key)
+                Console.WriteLine("not EAPOL-Key");
+                return null;
+            }
+
+            byte[] EAPOLBodyLengthField = 
+                data[(_IEEE8021XAuthHeader.Length + 2)..(_IEEE8021XAuthHeader.Length + 4)];
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(EAPOLBodyLengthField);
+            }
+            int EAPOLBodyLength = BitConverter.ToUInt16(EAPOLBodyLengthField);
+
+            if (data.Length < _IEEE8021XAuthHeader.Length + 4 + EAPOLBodyLength)
+            {
+                // The EAPOL body is too short
+                Console.WriteLine("EAPOL body too short");
+                return null;
+            }
+
+            if ((data[_IEEE8021XAuthHeader.Length + 4] != _WPA2EapolKeyDescriptorType) &&
+                (data[_IEEE8021XAuthHeader.Length + 4] != _WPAEapolKeyDescriptorType))
+            {
+                // The frame is not an RSN WPA2 or WPA key frame (invalid Descriptor Type field)
+                Console.WriteLine("invalid Descryptor Type field");
                 return null;
             }
 
             EAPOLKeyFormat keyFormat = 
-                new EAPOLKeyFormat(frame.PayloadData[_IEEE8021XAuthHeader.Length..]);
+                new EAPOLKeyFormat(data[(_IEEE8021XAuthHeader.Length + 4)..]);
 
             if (keyFormat.KeyData.Length != keyFormat.KeyDataLength)
             {
                 // The KeyDataLength field is invalid
+                Console.WriteLine("invalid keydata length");
                 return null;
             }
 

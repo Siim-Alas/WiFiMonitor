@@ -35,21 +35,26 @@ namespace ConsoleUI
                     if (radioPacket.PayloadPacket is DataFrame)
                     {
                         byte[] ipadMAC = new byte[] {
-                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+                            0x06, 0x7A, 0x70, 0x71, 0x73, 0xB5
                         };
 
                         DataFrame dataFrame = radioPacket.PayloadPacket as DataFrame;
-                        bool isDest = Enumerable.SequenceEqual(dataFrame.DestinationAddress.GetAddressBytes(), ipadMAC);
-                        bool isSource = Enumerable.SequenceEqual(dataFrame.SourceAddress.GetAddressBytes(), ipadMAC);
+                        bool isDest = Enumerable.SequenceEqual(
+                            dataFrame.DestinationAddress.GetAddressBytes(), ipadMAC);
+                        bool isSource = Enumerable.SequenceEqual(
+                            dataFrame.SourceAddress.GetAddressBytes(), ipadMAC);
 
-                        if ((isDest || isSource) && (dataFrame.PayloadData?.Length > 0))
+                        if (isDest || isSource)
                         {
-                            Console.WriteLine($"Caught a data packet of length { dataFrame.PayloadData?.Length } from the ipad");
-                            
+                            Console.WriteLine(dataFrame.ToString());
+
                             EAPOLKeyFormat keyFormat = 
                                 WPA2CryptographyTools.TryGetEAPOLKeyFromDataFrame(dataFrame);
                             
-                            Console.WriteLine(keyFormat != null);
+                            if (keyFormat != null)
+                            {
+                                Console.WriteLine("Success!!!");
+                            }
                         }
                     }
                 }
