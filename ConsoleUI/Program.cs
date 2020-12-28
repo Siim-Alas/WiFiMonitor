@@ -3,6 +3,7 @@ using PacketDotNet.Ieee80211;
 using System;
 using System.Linq;
 using WiFiMonitorClassLibrary;
+using WiFiMonitorClassLibrary.DataTypes;
 
 namespace ConsoleUI
 {
@@ -49,7 +50,7 @@ namespace ConsoleUI
                             Console.WriteLine(dataFrame.ToString());
 
                             EAPOLKeyFormat keyFormat = 
-                                WPA2CryptographyTools.TryGetEAPOLKeyFromDataFrame(dataFrame);
+                                FrameParser.TryGetEAPOLKeyFromDataFrame(dataFrame);
                             
                             if (keyFormat != null)
                             {

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using SharpPcap;
 using SharpPcap.LibPcap;
 using SharpPcap.Npcap;
+using WiFiMonitorClassLibrary.DataTypes;
 
 namespace WiFiMonitorClassLibrary
 {

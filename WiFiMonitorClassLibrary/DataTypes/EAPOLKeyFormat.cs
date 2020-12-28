@@ -1,6 +1,6 @@
 using System;
 
-namespace WiFiMonitorClassLibrary
+namespace WiFiMonitorClassLibrary.DataTypes
 {
     /// <summary>
     /// A byte array wrapper which simplifies accessing WPA2 EAPOL-Key data fields.

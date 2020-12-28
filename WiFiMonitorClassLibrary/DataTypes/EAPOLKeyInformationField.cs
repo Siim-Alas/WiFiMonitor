@@ -1,5 +1,5 @@
 
-namespace WiFiMonitorClassLibrary
+namespace WiFiMonitorClassLibrary.DataTypes
 {
     /// <summary>
     /// A struct that wraps a byte array and simplifies reading the EAPOL Key Information field.
