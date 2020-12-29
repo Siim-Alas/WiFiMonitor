@@ -20,6 +20,9 @@ namespace WiFiMonitorClassLibrary
             bit384 = 384 / 8,
             bit512 = 512 / 8,
         }
+
+        /*
+
         /// <summary>
         /// Decrypts a Stream with the AES algorithm.
         /// </summary>
@@ -70,6 +73,9 @@ namespace WiFiMonitorClassLibrary
             aesCcm.Decrypt(nonce, bytesToDecrypt, tag, decryptedBytes);
             return decryptedBytes;
         }
+
+        */
+
         /// <summary>
         /// Decrypts a byte array with the AES Counter (CTR) mode decryption algorithm.
         /// </summary>
@@ -163,8 +169,8 @@ namespace WiFiMonitorClassLibrary
         public static byte[] PBKDF2(
             string password, 
             byte[] salt, 
-            int numberOfIterations = 4096, 
-            int keyLengthInBytes = 32)
+            int numberOfIterations, 
+            int keyLengthInBytes)
         {
             using Rfc2898DeriveBytes encryptor = 
                 new Rfc2898DeriveBytes(password, salt, numberOfIterations);

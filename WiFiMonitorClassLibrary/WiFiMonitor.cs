@@ -86,9 +86,11 @@ namespace WiFiMonitorClassLibrary
                 // unsupported LinkLayerType
                 packet = Packet.ParsePacket(e.Packet.LinkLayerType, e.Packet.Data);
             } 
-            catch // (NotImplementedException)
+            catch
             {
-                packet = null;
+                // The packet captured may have all manner of things wrong with it, 
+                // in which case the program should just ignore it
+                return;
             }
 
             CapturedPackets.Add(packet);

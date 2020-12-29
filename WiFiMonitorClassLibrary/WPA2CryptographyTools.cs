@@ -16,38 +16,33 @@ namespace WiFiMonitorClassLibrary
         private readonly static byte _RSNFlag = 0b_0101_1001;
         /// <summary>
         /// Decrypts a PacketDotNet IEEE 802.11 DataFrame (containing one MPDU)
-        /// using CCMP decryption. The "numbers only used once" provided needn't 
-        /// be in any particular order.
+        /// using CCMP decryption.
         /// </summary>
-        /// <param name="frameToDecrypt">The frame which will get its PayloadData decrypted.</param>
-        /// <param name="pairwiseMasterKey">
-        /// The pairwise master key (PMK) established between the sender and the destination.
+        /// <param name="frameToDecrypt">The data frame containing the data to decrypt.</param>
+        /// <param name="pairwiseTemporalKey">
+        /// The Pairwise Taster Key (PTK) established between the sender and the destination.
         /// </param>
-        /// <param name="nonceA">
-        /// A Nonce established between the sender and destination stations during the 4-way 
-        /// handshake.
-        /// </param>
-        /// <param name="nonceB">
-        /// The other Nonce established between the sender and destination stations during the 4-way 
-        /// handshake.
-        /// </param>
-        public static void CCMPDecryptDataFrame(
-            ref DataFrame frameToDecrypt, 
-            byte[] pairwiseMasterKey, 
-            byte[] nonceA,
-            byte[] nonceB)
+        /// <returns>
+        /// The decrypted data from the body of the frame provided. Note that this includes
+        /// both the original data of the frame and the 64-bit (8-byte) MIC appended to it.
+        /// </returns>
+        public static byte[] CCMPDecryptDataFrame(
+            DataFrame frameToDecrypt, 
+            byte[] pairwiseTemporalKey)
         {
             if (frameToDecrypt.FrameControl.Protected == false)
             {
-                return;
+                return frameToDecrypt.PayloadData;
             }
 
+            /*
             byte[] pairwiseTemporalKey = GeneratePairwiseTemporalKey(
                 pairwiseMasterKey,
                 frameToDecrypt.DestinationAddress.GetAddressBytes(),
                 frameToDecrypt.SourceAddress.GetAddressBytes(),
                 nonceA,
                 nonceB);
+            */
 
             CCMPHeader ccmpHeader = new CCMPHeader(frameToDecrypt);
             // Everything from right after the CCMP header up until the FCS is encrypted
@@ -62,7 +57,8 @@ namespace WiFiMonitorClassLibrary
             byte[] decryptedBytes = CryptographyWrapper.AESCounterModeDecryptBytes(
                 encryptedSection, pairwiseTemporalKey, initialCounter);
 
-            decryptedBytes.CopyTo(frameToDecrypt.PayloadData, ccmpHeader.Bytes.Length);
+            // decryptedBytes.CopyTo(frameToDecrypt.PayloadData, ccmpHeader.Bytes.Length);
+            return decryptedBytes;
         }
         /// <summary>
         /// Generates the 104-bit (13-byte) "number used only once" used in the CCMP encryption 
@@ -87,7 +83,12 @@ namespace WiFiMonitorClassLibrary
         }
         /// <summary>
         /// Generates the value of the initial CCMP counter (the first 128-bit block CCMP uses in 
-        /// encrypting the message with AES Counter (CTR) mode).
+        /// encrypting the message with AES Counter (CTR) mode). The initial counter is composed
+        /// as follows: <br />
+        /// 1 byte (0) -- RSN flag <br />
+        /// 13 bytes (1-13) -- 104-bit Nonce <br />
+        /// 2 bytes (14-16) -- 1 as a 16-bit unsigned integer (this gets incremented on subsequent
+        /// iterations)
         /// </summary>
         /// <param name="nonce">
         /// The 104-bit (13-byte) "number used only once" used in creating the initial counter.
@@ -105,16 +106,37 @@ namespace WiFiMonitorClassLibrary
             return counter;
         }
         /// <summary>
-        /// Generates the 512-bit (64-byte) pairwise temporal key (PTK). The provided MAC addresses
-        /// and Nonces needn't be in any particular order.
+        /// Generates the Pairwise Master Key (PMK) for an Access Point (AP). In WPA2, the
+        /// PMK is used for calculating the Pairwise Temporal Key (PTK), which is the actual
+        /// key used for encrypting the frames.
         /// </summary>
-        /// <param name="pairwiseMasterKey">The pairwise master key (PMK).</param>
+        /// <param name="accessPointPassword">The password of the AP.</param>
+        /// <param name="accessPointBSSID">The BSSID of the AP.</param>
+        /// <returns>The PMK.</returns>
+        public static byte[] GeneratePairwiseMasterKey(
+            string accessPointPassword,
+            byte[] accessPointBSSID)
+        {
+            byte[] pairwiseMasterKey = 
+                CryptographyWrapper.PBKDF2(accessPointPassword, accessPointBSSID, 4096, 32);
+
+            return pairwiseMasterKey;
+        }
+        /// <summary>
+        /// Generates the 512-bit (64-byte) Pairwise Temporal Key (PTK). The provided MAC addresses
+        /// and "numbers used only once" (Nonces) needn't be in any particular order, since
+        /// the PTK is calculated as follows: <br />
+        /// PTK = PRF-512(PMK, min(MACA, MACB) | max(MACA, MACB) | min(NonceA, NonceB) | 
+        /// max(nonceA, NonceB)) <br />
+        /// where "|" signifies byte array concatenation.
+        /// </summary>
+        /// <param name="pairwiseMasterKey">The Pairwise Master Key (PMK).</param>
         /// <param name="MACA">The first MAC address.</param>
         /// <param name="MACB">The second MAC address.</param>
-        /// <param name="nonceA">The first "number used only once".</param>
-        /// <param name="nonceB">The second "number used only once".</param>
-        /// <returns>The pairwise temporal key (PTK).</returns>
-        private static byte[] GeneratePairwiseTemporalKey(
+        /// <param name="nonceA">The first Nonce.</param>
+        /// <param name="nonceB">The second Nonce.</param>
+        /// <returns>The PTK.</returns>
+        public static byte[] GeneratePairwiseTemporalKey(
             byte[] pairwiseMasterKey, 
             byte[] MACA, 
             byte[] MACB,

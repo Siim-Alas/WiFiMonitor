@@ -49,12 +49,13 @@ namespace ConsoleUI
                         {
                             Console.WriteLine(dataFrame.ToString());
 
-                            EAPOLKeyFormat keyFormat = 
-                                FrameParser.TryGetEAPOLKeyFromDataFrame(dataFrame);
+                            int handshakeNum = FrameParser.TryToParse4WayHandshake(
+                                dataFrame, out EAPOLKeyFormat keyFormat);
                             
                             if (keyFormat != null)
                             {
-                                Console.WriteLine("Success!!!");
+                                Console.WriteLine(
+                                    $"Message num: { handshakeNum }, dtn: { keyFormat.KeyInformation.KeyDescriptorTypeNumber }");
                             }
                         }
                     }
