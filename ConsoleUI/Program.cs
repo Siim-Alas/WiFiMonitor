@@ -40,15 +40,13 @@ namespace ConsoleUI
                         };
 
                         DataFrame dataFrame = radioPacket.PayloadPacket as DataFrame;
-                        bool isDest = Enumerable.SequenceEqual(
-                            dataFrame.DestinationAddress.GetAddressBytes(), ipadMAC);
-                        bool isSource = Enumerable.SequenceEqual(
-                            dataFrame.SourceAddress.GetAddressBytes(), ipadMAC);
+                        bool isDest = HelperMethods.CompareBuffers(
+                            dataFrame.DestinationAddress.GetAddressBytes(), ipadMAC) == 0;
+                        bool isSource = HelperMethods.CompareBuffers(
+                            dataFrame.SourceAddress.GetAddressBytes(), ipadMAC) == 0;
 
                         if (isDest || isSource)
                         {
-                            Console.WriteLine(dataFrame.ToString());
-
                             int handshakeNum = FrameParser.TryToParse4WayHandshake(
                                 dataFrame, out EAPOLKeyFormat keyFormat);
                             
@@ -56,6 +54,8 @@ namespace ConsoleUI
                             {
                                 Console.WriteLine(
                                     $"Message num: { handshakeNum }, dtn: { keyFormat.KeyInformation.KeyDescriptorTypeNumber }");
+                                Console.WriteLine(Convert.ToString(keyFormat.KeyInformation.Bytes[0], toBase: 2));
+                                Console.WriteLine(Convert.ToString(keyFormat.KeyInformation.Bytes[1], toBase: 2));
                             }
                         }
                     }

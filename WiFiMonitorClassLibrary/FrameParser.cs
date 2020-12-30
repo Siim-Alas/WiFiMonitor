@@ -22,7 +22,7 @@ namespace WiFiMonitorClassLibrary
                 install: false,
                 keyIndex: 0b_00,
                 keyType: true,
-                keyDescriptorNumber: 0b_001
+                keyDescriptorNumber: 0b_010
         );
         /// <summary>
         /// The Key Information field expected on message number 2 of the 4-way handshake.
@@ -37,7 +37,7 @@ namespace WiFiMonitorClassLibrary
             install: false,
             keyIndex: 0b_00,
             keyType: true,
-            keyDescriptorNumber: 0b_001
+            keyDescriptorNumber: 0b_010
         );
         /// <summary>
         /// The Key Information field expected on message number 3 of the 4-way handshake.
@@ -52,7 +52,7 @@ namespace WiFiMonitorClassLibrary
             install: false,
             keyIndex: 0b_00,
             keyType: true,
-            keyDescriptorNumber: 0b_001
+            keyDescriptorNumber: 0b_010
         );
         /// <summary>
         /// The Key Information field expected on message number 4 of the 4-way handshake.
@@ -67,7 +67,7 @@ namespace WiFiMonitorClassLibrary
             install: true,
             keyIndex: 0b_00,
             keyType: true,
-            keyDescriptorNumber: 0b_001
+            keyDescriptorNumber: 0b_010
         );
         /// <summary>
         /// All IEEE 802.11 Data frames carry an IEEE 802.2 LLC header in the frame body, 
