@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using SharpPcap;
 using SharpPcap.LibPcap;
 using SharpPcap.Npcap;
-using WiFiMonitorClassLibrary.DataTypes;
+using WiFiMonitorClassLibrary.Monitoring;
 
 namespace WiFiMonitorClassLibrary
 {
@@ -13,8 +13,10 @@ namespace WiFiMonitorClassLibrary
     /// </summary>
     public class WiFiMonitor : IDisposable
     {
+        private readonly NetworkGraph _networkGraph;
         private readonly int _readTimeout;
 
+        private CaptureDeviceList _captureDevices;
         private bool _capturing = false;
 
         public delegate void PacketArrivedEventHandler(object source, PacketArrivedEventArgs e);
@@ -24,12 +26,17 @@ namespace WiFiMonitorClassLibrary
         /// Creates a new instance of WiFiMonitor.
         /// </summary>
         /// <param name="readTimeout">The timeout for reading packets.</param>
-        public WiFiMonitor(int readTimeout = 1000)
+        public WiFiMonitor(int readTimeout = 1000, bool constructNetworkGraph = false)
         {
             _readTimeout = readTimeout;
+
+            if (constructNetworkGraph)
+            {
+                _networkGraph = new NetworkGraph();
+                PacketArrived += _networkGraph.HandlePacketArrived;
+            }
         }
 
-        public CaptureDeviceList CaptureDevices { get; private set; }
         public List<Packet> CapturedPackets { get; private set; } = new List<Packet>();
 
         /// <summary>
@@ -42,13 +49,14 @@ namespace WiFiMonitorClassLibrary
                 EndCapture();
             }
 
-            CaptureDevices = CaptureDeviceList.Instance;
+            _captureDevices = CaptureDeviceList.Instance;
 
-            for (int i = 0; i < CaptureDevices.Count; i++)
+            for (int i = 0; i < _captureDevices.Count; i++)
             {
                 try 
                 {
-                    StartCaptureOnDevice(CaptureDevices[i]);
+                    // This might cause an exception due to lack of permission
+                    StartCaptureOnDevice(_captureDevices[i]);
                 }
                 catch { }
             }
@@ -60,15 +68,15 @@ namespace WiFiMonitorClassLibrary
         /// </summary>
         public void EndCapture()
         {
-            if (CaptureDevices != null)
+            if (_captureDevices != null)
             {
-                for (int i = 0; i < CaptureDevices.Count; i++)
+                for (int i = 0; i < _captureDevices.Count; i++)
                 {
-                    StopCaptureOnDevice(CaptureDevices[i]);
+                    StopCaptureOnDevice(_captureDevices[i]);
                 }
             }
 
-            CaptureDevices = null;
+            _captureDevices = null;
             _capturing = false;
         }
 

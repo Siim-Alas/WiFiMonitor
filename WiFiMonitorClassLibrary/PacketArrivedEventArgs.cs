@@ -1,7 +1,7 @@
 ﻿using PacketDotNet;
 using System;
 
-namespace WiFiMonitorClassLibrary.DataTypes
+namespace WiFiMonitorClassLibrary
 {
     public class PacketArrivedEventArgs : EventArgs
     {

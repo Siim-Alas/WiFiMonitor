@@ -1,8 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using WiFiMonitorClassLibrary.StaticHelpers;
 
-namespace WiFiMonitorClassLibrary.DataTypes
+namespace WiFiMonitorClassLibrary.Parsing
 {
     /// <summary>
     /// A class that wraps a byte array and simplifies reading the EAPOL Key Information field.

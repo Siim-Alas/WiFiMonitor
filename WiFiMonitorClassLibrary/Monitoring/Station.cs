@@ -1,5 +1,5 @@
 
-namespace WiFiMonitorClassLibrary.DataTypes
+namespace WiFiMonitorClassLibrary.Monitoring
 {
     public class Station
     {

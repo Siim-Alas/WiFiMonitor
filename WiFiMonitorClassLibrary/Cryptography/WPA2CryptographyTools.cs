@@ -1,9 +1,10 @@
 using PacketDotNet.Ieee80211;
 using System;
 using System.Text;
-using WiFiMonitorClassLibrary.DataTypes;
+using WiFiMonitorClassLibrary.Parsing;
+using WiFiMonitorClassLibrary.StaticHelpers;
 
-namespace WiFiMonitorClassLibrary
+namespace WiFiMonitorClassLibrary.Cryptography
 {
     /// <summary>
     /// Provides methods specific to WPA2 cryptography using CCMP.

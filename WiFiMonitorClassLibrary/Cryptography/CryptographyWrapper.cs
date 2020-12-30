@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 
-namespace WiFiMonitorClassLibrary
+namespace WiFiMonitorClassLibrary.Cryptography
 {
     /// <summary>
     /// An abstraction of various cryptographic operations from the System.Security.Cryptohraphy 

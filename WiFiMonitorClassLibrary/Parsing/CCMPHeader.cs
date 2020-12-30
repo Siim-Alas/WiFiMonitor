@@ -1,7 +1,7 @@
 ﻿using PacketDotNet.Ieee80211;
 using System;
 
-namespace WiFiMonitorClassLibrary.DataTypes
+namespace WiFiMonitorClassLibrary.Parsing
 {
     public readonly struct CCMPHeader
     {

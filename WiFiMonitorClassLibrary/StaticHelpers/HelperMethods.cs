@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace WiFiMonitorClassLibrary
+namespace WiFiMonitorClassLibrary.StaticHelpers
 {
     /// <summary>
     /// A static class containing various miscellanious helper methods.

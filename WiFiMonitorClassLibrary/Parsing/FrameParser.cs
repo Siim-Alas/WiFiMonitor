@@ -1,8 +1,8 @@
 using PacketDotNet.Ieee80211;
 using System;
-using WiFiMonitorClassLibrary.DataTypes;
+using WiFiMonitorClassLibrary.StaticHelpers;
 
-namespace WiFiMonitorClassLibrary
+namespace WiFiMonitorClassLibrary.Parsing
 {
     /// <summary>
     /// Provides methods for parsing PacketDotNet IEEE 802.11 frames.
@@ -46,10 +46,10 @@ namespace WiFiMonitorClassLibrary
             new EAPOLKeyInformationField(
             request: false,
             error: false,
-            secure: false,
+            secure: true,
             mic: true,
             ack: true,
-            install: false,
+            install: true,
             keyIndex: 0b_00,
             keyType: true,
             keyDescriptorNumber: 0b_010
@@ -61,10 +61,10 @@ namespace WiFiMonitorClassLibrary
             new EAPOLKeyInformationField(
             request: false,
             error: false,
-            secure: false,
+            secure: true,
             mic: true,
             ack: false,
-            install: true,
+            install: false,
             keyIndex: 0b_00,
             keyType: true,
             keyDescriptorNumber: 0b_010
@@ -107,26 +107,26 @@ namespace WiFiMonitorClassLibrary
             if (data.Length < 95 + 4 + _IEEE8021XAuthHeader.Length)
             {
                 // The data frame body is too short
-                Console.WriteLine("too short");
+                // Console.WriteLine("too short");
                 return null;
             }
             if (HelperMethods.CompareBuffers(
                     _IEEE8021XAuthHeader, data[0.._IEEE8021XAuthHeader.Length]) != 0)
             {
                 // The frame is not an IEEE 802.1X Authentication frame (invalid header)
-                Console.WriteLine("invalid header");
+                // Console.WriteLine("invalid header");
                 return null;
             }
             if (data[_IEEE8021XAuthHeader.Length] != 2)
             {
                 // The protocol version in the EAPOL MPDU header is not 2
-                Console.WriteLine("invalid protocol version");
+                // Console.WriteLine("invalid protocol version");
                 return null;
             }
             if (data[_IEEE8021XAuthHeader.Length + 1] != 3)
             {
                 // The EAP Code in the EAPOL MPDU header is not 3 (EAPOL-Key)
-                Console.WriteLine("not EAPOL-Key");
+                // Console.WriteLine("not EAPOL-Key");
                 return null;
             }
 
@@ -141,7 +141,7 @@ namespace WiFiMonitorClassLibrary
             if (data.Length < _IEEE8021XAuthHeader.Length + 4 + EAPOLBodyLength)
             {
                 // The EAPOL body is too short
-                Console.WriteLine("EAPOL body too short");
+                // Console.WriteLine("EAPOL body too short");
                 return null;
             }
 
@@ -149,7 +149,7 @@ namespace WiFiMonitorClassLibrary
                 (data[_IEEE8021XAuthHeader.Length + 4] != _WPAEapolKeyDescriptorType))
             {
                 // The frame is not an RSN WPA2 or WPA key frame (invalid Descriptor Type field)
-                Console.WriteLine("invalid Descryptor Type field");
+                // Console.WriteLine("invalid Descryptor Type field");
                 return null;
             }
 
@@ -158,7 +158,7 @@ namespace WiFiMonitorClassLibrary
             if (keyFormat.KeyData.Length != keyFormat.KeyDataLength)
             {
                 // The KeyDataLength field is invalid
-                Console.WriteLine("invalid keydata length");
+                // Console.WriteLine("invalid keydata length");
                 return null;
             }
 
