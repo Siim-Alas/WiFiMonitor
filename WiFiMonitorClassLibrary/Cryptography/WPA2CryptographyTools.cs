@@ -111,12 +111,12 @@ namespace WiFiMonitorClassLibrary.Cryptography
         /// PMK is used for calculating the Pairwise Temporal Key (PTK), which is the actual
         /// key used for encrypting the frames.
         /// </summary>
-        /// <param name="accessPointPassword">The password of the AP.</param>
         /// <param name="accessPointBSSID">The BSSID of the AP.</param>
+        /// <param name="accessPointPassword">The password of the AP.</param>
         /// <returns>The PMK.</returns>
         public static byte[] GeneratePairwiseMasterKey(
-            string accessPointPassword,
-            byte[] accessPointBSSID)
+            byte[] accessPointBSSID,
+            string accessPointPassword)
         {
             byte[] pairwiseMasterKey = 
                 CryptographyWrapper.PBKDF2(accessPointPassword, accessPointBSSID, 4096, 32);

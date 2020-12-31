@@ -1,6 +1,7 @@
 ﻿using PacketDotNet;
 using System;
 using System.Collections.Generic;
+using System.Net.NetworkInformation;
 using SharpPcap;
 using SharpPcap.LibPcap;
 using SharpPcap.Npcap;
@@ -26,6 +27,11 @@ namespace WiFiMonitorClassLibrary
         /// Creates a new instance of WiFiMonitor.
         /// </summary>
         /// <param name="readTimeout">The timeout for reading packets.</param>
+        /// <param name="constructNetworkGraph">
+        /// If set to true, a graph of the network will be constructed, allowing for
+        /// the capturing of Nonces, which can in turn be used for decrypting
+        /// IEEE 802.11 data frames.
+        /// </param>
         public WiFiMonitor(int readTimeout = 1000, bool constructNetworkGraph = false)
         {
             _readTimeout = readTimeout;
@@ -38,7 +44,10 @@ namespace WiFiMonitorClassLibrary
         }
 
         public List<Packet> CapturedPackets { get; private set; } = new List<Packet>();
-
+        public NetworkGraph NetworkGraph 
+        {
+            get { return _networkGraph; }
+        }
         /// <summary>
         /// Begins capturing WiFi packets on all devices available at the time of method call.
         /// </summary>
@@ -142,6 +151,7 @@ namespace WiFiMonitorClassLibrary
         /// <param name="device">The device on which to stop capturing packets.</param>
         private void StopCaptureOnDevice(ICaptureDevice device)
         {
+            device.OnPacketArrival -= HandlePacketArrival;
             device.StopCapture();
         }
         /// <summary>

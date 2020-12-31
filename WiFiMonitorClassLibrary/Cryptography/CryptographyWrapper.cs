@@ -1,6 +1,6 @@
 using System;
-using System.IO;
 using System.Security.Cryptography;
+using System.Reflection;
 
 namespace WiFiMonitorClassLibrary.Cryptography
 {
@@ -20,62 +20,6 @@ namespace WiFiMonitorClassLibrary.Cryptography
             bit384 = 384 / 8,
             bit512 = 512 / 8,
         }
-
-        /*
-
-        /// <summary>
-        /// Decrypts a Stream with the AES algorithm.
-        /// </summary>
-        /// <param name="streamToDecrypt">The stream to decrypt.</param>
-        /// <param name="key">The key used in encrypting the stream.</param>
-        /// <param name="initializationVector">
-        /// The initialization vectors used in decrypting the stream.
-        /// </param>
-        /// <param name="cipherMode">The cipher mode used in decrypting the stream.</param>
-        /// <returns>The decrypted stream.</returns>
-        public static CryptoStream AESDecryptStream(
-            Stream streamToDecrypt, 
-            byte[] key, 
-            byte[] initializationVector, 
-            CipherMode cipherMode = CipherMode.CBC)
-        {
-            using Aes aesAlg = new AesManaged() 
-            {
-                // AesManaged limits block sizes to 128 bits
-                IV = initializationVector,
-                Key = key,
-                // KeySize = key.Length * 8,
-                Mode = cipherMode
-            };
-            using ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
-
-            using CryptoStream decryptedCryptoStream = new CryptoStream(
-                streamToDecrypt, decryptor, CryptoStreamMode.Read);
-            
-            return decryptedCryptoStream;
-        }
-        /// <summary>
-        /// Decrypts a byte array with the AES CCM algorithm.
-        /// </summary>
-        /// <param name="bytesToDecrypt">The byte array to decrypt.</param>
-        /// <param name="key">The key used in encrypting the byte array.</param>
-        /// <param name="nonce">The "number used only once" used in encrypting the byte array.</param>
-        /// <param name="tag">The authentication tag produced during encryption.</param>
-        /// <returns>The decrypted byte array.</returns>
-        public static byte[] AESCCMDecryptBytes(
-            byte[] bytesToDecrypt,
-            byte[] key,
-            byte[] nonce,
-            byte[] tag)
-        {
-            byte[] decryptedBytes = new byte[bytesToDecrypt.Length];
-            using AesCcm aesCcm = new AesCcm(key);
-            aesCcm.Decrypt(nonce, bytesToDecrypt, tag, decryptedBytes);
-            return decryptedBytes;
-        }
-
-        */
-
         /// <summary>
         /// Decrypts a byte array with the AES Counter (CTR) mode decryption algorithm.
         /// </summary>
@@ -172,9 +116,30 @@ namespace WiFiMonitorClassLibrary.Cryptography
             int numberOfIterations, 
             int keyLengthInBytes)
         {
-            using Rfc2898DeriveBytes encryptor = 
-                new Rfc2898DeriveBytes(password, salt, numberOfIterations);
-            return encryptor.GetBytes(keyLengthInBytes);
+            if (salt.Length >= 8)
+            {
+                // Salt lengths of less than 8 throw ArgumentException
+                using Rfc2898DeriveBytes encryptor = 
+                    new Rfc2898DeriveBytes(password, salt, numberOfIterations);
+                return encryptor.GetBytes(keyLengthInBytes);
+            }
+            else 
+            {
+                // The Rfc2898DeriveBytes class: https://github.com/dotnet/corefx/blob/master/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/Rfc2898DeriveBytes.cs
+                // This is a hack and may thus be broken with subsequent versions
+
+                // Pass a dummy byte array of length 8 to not get ArgumentException
+                using Rfc2898DeriveBytes encryptor = 
+                    new Rfc2898DeriveBytes(password, new byte[8], numberOfIterations);
+
+                // Use System.Reflection to set the private field "_salt" on the encryptor
+                FieldInfo saltFieldInfo = typeof(Rfc2898DeriveBytes).GetField(
+                    "_salt", BindingFlags.NonPublic | BindingFlags.Instance);
+                saltFieldInfo.SetValue(encryptor, salt);
+
+                // Now that the encryptor has the proper salt, get the bytes as usual
+                return encryptor.GetBytes(keyLengthInBytes);
+            }
         }
         /// <summary>
         /// Pseudo-Random Function to produce n bits.
@@ -194,7 +159,8 @@ namespace WiFiMonitorClassLibrary.Cryptography
             byte[] specificText, 
             byte[] specificData)
         {
-            byte[] resultBytes = new byte[(int)n + ((int)n % 20)];
+            // n will never be a multiple of 20 bytes
+            byte[] resultBytes = new byte[20 * (((int)n / 20) + 1)];
             byte[] argumentBytes = new byte[specificText.Length + 1 + specificData.Length + 1];
             byte[] hashResult;
 
