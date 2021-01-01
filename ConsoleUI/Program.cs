@@ -1,6 +1,7 @@
 ﻿using PacketDotNet;
 using PacketDotNet.Ieee80211;
 using System;
+using System.Net.NetworkInformation;
 using System.Text;
 using WiFiMonitorClassLibrary;
 using WiFiMonitorClassLibrary.Cryptography;
@@ -12,6 +13,22 @@ namespace ConsoleUI
     {
         static void Main(string[] args)
         {
+            /*
+            byte[] bytesToDecrypt = new byte[100];
+            byte[] counterBlock = new byte[128 / 8];
+            byte[] key = new byte[128 / 8];
+
+            byte[] encryptedBytes = 
+                CryptographyWrapper.AESCounterModeEncryptBytes(bytesToDecrypt, key, counterBlock);
+            byte[] decryptedBytes = 
+                CryptographyWrapper.AESCounterModeEncryptBytes(encryptedBytes, key, counterBlock);
+            Console.WriteLine(decryptedBytes.Length);
+            for (int i = 0; i < decryptedBytes.Length; i++)
+            {
+                Console.WriteLine($"{i}) {decryptedBytes[i]}");
+            }
+            */
+
             using WiFiMonitor wiFiMonitor = new WiFiMonitor(constructNetworkGraph: true);
             wiFiMonitor.PacketArrived += (object sender, PacketArrivedEventArgs e) => 
             {
@@ -21,12 +38,10 @@ namespace ConsoleUI
                     return;
                 }
 
-                Console.WriteLine("Data frame with non-null data");
+                wiFiMonitor.NetworkGraph.GetDestinationAndSource(
+                    dataFrame, out AccessPoint accessPoint, out Station station);
 
-                bool accessPointIsDestination = 
-                    wiFiMonitor.NetworkGraph.GetDestinationAndSource(
-                        dataFrame, out AccessPoint accessPoint, out Station station);
-                if (station.PairwiseTemporalKey == null)
+                if (station.PairwiseTransientKey == null)
                 {
                     return;
                 }
@@ -34,19 +49,19 @@ namespace ConsoleUI
                 Console.WriteLine("Attempting to decrypt");
 
                 byte[] decryptedBytes = WPA2CryptographyTools.CCMPDecryptDataFrame(
-                    dataFrame, station.PairwiseTemporalKey);
-                string decodedText = Encoding.UTF8.GetString(decryptedBytes);
+                    dataFrame, station.PairwiseTransientKey);
+                string decodedText = Encoding.GetEncoding("iso-8859-1").GetString(decryptedBytes);
 
                 Console.WriteLine(decodedText);
             };
 
-            Console.WriteLine("Access point BSSID:");
-            string bssid = Console.ReadLine();
             Console.WriteLine("Access point password:");
             string password = Console.ReadLine();
 
             Console.WriteLine("Adding PMK.");
-            wiFiMonitor.NetworkGraph.AddPassword(bssid, password);
+            wiFiMonitor.NetworkGraph.AddPassword("00-00-00-00-00-00", password);
+            wiFiMonitor.NetworkGraph.AddPassword("00-00-00-00-00-00", password);
+            wiFiMonitor.NetworkGraph.AddPassword("00-00-00-00-00-00", password);
 
             Console.WriteLine("Beginning capture.");
             wiFiMonitor.BeginCapture();
@@ -54,6 +69,7 @@ namespace ConsoleUI
 
             Console.ReadKey();
             Console.WriteLine("\n\nEnding capture.");
+            Console.WriteLine("Disposing WiFiMonitor.");
             wiFiMonitor.Dispose();
             Console.WriteLine("WifiMonitor disposed, terminating.");
         }

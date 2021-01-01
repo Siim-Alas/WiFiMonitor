@@ -18,11 +18,16 @@ namespace WiFiMonitorClassLibrary.Monitoring
         public NetworkGraph()
         {
             AccessPoints = new Dictionary<PhysicalAddress, AccessPoint>();
+            Stations = new Dictionary<PhysicalAddress, Station>();
         }
         /// <summary>
         /// The access points in the network graph.
         /// </summary>
         public IDictionary<PhysicalAddress, AccessPoint> AccessPoints { get; }
+        /// <summary>
+        /// The stations in the network graph.
+        /// </summary>
+        public IDictionary<PhysicalAddress, Station> Stations { get; }
         /// <summary>
         /// Adds a Pairwise Master Key (PMK) to the access point with the specified BSSID.
         /// In WPA2, the PMK is derived from the access point BSSID and password and used to 
@@ -68,6 +73,7 @@ namespace WiFiMonitorClassLibrary.Monitoring
             out AccessPoint accessPoint,
             out Station station)
         {
+            /*
             PhysicalAddress destinationAddress = dataFrame.DestinationAddress;
             PhysicalAddress sourceAddress = dataFrame.SourceAddress;
 
@@ -118,6 +124,64 @@ namespace WiFiMonitorClassLibrary.Monitoring
                     return false;
                 }
             }
+            */
+            PhysicalAddress destAddress = dataFrame.DestinationAddress;
+            PhysicalAddress sourceAddress = dataFrame.SourceAddress;
+
+            if (AccessPoints.TryGetValue(destAddress, out accessPoint))
+            {
+                if (Stations.TryGetValue(sourceAddress, out station) == false)
+                {
+                    // No station with the sourceAddress was found, so a new one is created
+                    station = new Station();
+                    Stations[sourceAddress] = station;
+                }
+                // The destination is a known access point
+                return true;
+            }
+            else if (AccessPoints.TryGetValue(sourceAddress, out accessPoint))
+            {
+                if (Stations.TryGetValue(destAddress, out station) == false)
+                {
+                    // No station with the destAddress was found, so a new one is created
+                    station = new Station();
+                    Stations[destAddress] = station;
+                }
+                // The source is a known access point
+                return false;
+            }
+            else if (Stations.TryGetValue(destAddress, out station))
+            {
+                // The source is an unknown access point, so a new one is created
+                accessPoint = new AccessPoint(sourceAddress);
+                AccessPoints[sourceAddress] = accessPoint;
+                return false;
+            }
+            else if (Stations.TryGetValue(sourceAddress, out station))
+            {
+                // The destination is an unknown access point, so a new one is created
+                accessPoint = new AccessPoint(destAddress);
+                AccessPoints[destAddress] = accessPoint;
+                return true;
+            }
+            else
+            {
+                station = new Station();
+                if (dataFrame.FrameControl.ToDS)
+                {
+                    accessPoint = new AccessPoint(destAddress);
+                    AccessPoints[destAddress] = accessPoint;
+                    Stations[sourceAddress] = station;
+                    return true;
+                }
+                else 
+                {
+                    accessPoint = new AccessPoint(sourceAddress);
+                    AccessPoints[sourceAddress] = accessPoint;
+                    Stations[destAddress] = station;
+                    return false;
+                }
+            }
         }
         private void HandleDataFrame(DataFrame dataFrame)
         {
@@ -138,7 +202,7 @@ namespace WiFiMonitorClassLibrary.Monitoring
                     station.SNonce = keyFormat.KeyNonce;
                     if ((station.ANonce != null) && (accessPoint.PairwiseMasterKey != null))
                     {
-                        byte[] ptk = WPA2CryptographyTools.GeneratePairwiseTemporalKey(
+                        byte[] ptk = WPA2CryptographyTools.GeneratePairwiseTransientKey(
                             accessPoint.PairwiseMasterKey,
                             dataFrame.DestinationAddress.GetAddressBytes(),
                             dataFrame.SourceAddress.GetAddressBytes(),
@@ -146,7 +210,7 @@ namespace WiFiMonitorClassLibrary.Monitoring
                             station.SNonce);
 
                         System.Console.WriteLine("Setting ptk");
-                        station.PairwiseTemporalKey = ptk;
+                        station.PairwiseTransientKey = ptk;
                     }
                     break;
                 case 3:

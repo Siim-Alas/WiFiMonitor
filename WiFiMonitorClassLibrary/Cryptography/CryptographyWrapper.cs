@@ -21,31 +21,46 @@ namespace WiFiMonitorClassLibrary.Cryptography
             bit512 = 512 / 8,
         }
         /// <summary>
-        /// Decrypts a byte array with the AES Counter (CTR) mode decryption algorithm.
+        /// Encrypts or decrypts a byte array with the AES Counter (CTR) mode.
+        /// Note that for this algorithm, encryption and decryption are identical. Decryption
+        /// consists of encrypting the encrypted byte array again with the same initial counter
+        /// and key used during encryption.
         /// </summary>
-        /// <param name="bytesToDecrypt">The byte array to be decrypted.</param>
-        /// <param name="key">The key used during encryption.</param>
-        /// <param name="counterBlock">
+        /// <param name="bytesToEncrypt">The byte array to be encrypted.</param>
+        /// <param name="initialCounter">
         /// The first block used during encryption, which has to be equal in length to the block
-        /// size used during encryption (128 bits or 16 bytes for CCMP). It will get mutated
-        /// during encryption.
+        /// size used during encryption (128 bits or 16 bytes for CCMP).
         /// </param>
-        /// <returns>The decrypted byte array.</returns>
-        public static byte[] AESCounterModeDecryptBytes(
-            byte[] bytesToDecrypt,
-            byte[] key,
-            byte[] counterBlock)
+        /// <param name="key">The key used during encryption.</param>
+        /// <returns>The encrypted byte array.</returns>
+        public static byte[] AESCounterModeEncryptBytes(
+            byte[] bytesToEncrypt,
+            byte[] initialCounter,
+            byte[] key)
         {
             // Inspired by https://gist.github.com/hanswolff/8809275
-            int blockSizeInBytes = 128 / 8;
-            if (counterBlock.Length != blockSizeInBytes)
+            if (bytesToEncrypt == null)
+            {
+                throw new ArgumentNullException(
+                    "The bytes to encrypt were null", nameof(bytesToEncrypt));
+            }
+            if (key == null)
+            {
+                throw new ArgumentNullException("The key provided was null", nameof(key));
+            }
+            const int blockSizeInBytes = 128 / 8;
+            if (initialCounter.Length != blockSizeInBytes)
             {
                 throw new ArgumentException(
-                    "The counterBlock provided isn't 128 bits or 16 bytes long.");
+                    "The initialCounter provided isn't 128 bits or 16 bytes long.", 
+                    nameof(initialCounter));
             }
 
+            byte[] counterBlock = new byte[128 / 8];
+            byte[] encryptedBytes = new byte[bytesToEncrypt.Length];
             byte[] encryptedCounterBlock = new byte[blockSizeInBytes];
-            byte[] decryptedBytes = new byte[bytesToDecrypt.Length];
+
+            initialCounter.CopyTo(counterBlock, 0);
 
             using Aes aesAlg = new AesManaged()
             {
@@ -54,18 +69,19 @@ namespace WiFiMonitorClassLibrary.Cryptography
                 Padding = PaddingMode.None
             };
             // Integer division rounds towards zero, so this will omit any partial block at the end
-            for (int i = 0; i < bytesToDecrypt.Length / blockSizeInBytes; i++)
+            for (int i = 0; i < bytesToEncrypt.Length / blockSizeInBytes; i++)
             {
                 // Encrypt the counter block in ECB mode
                 using ICryptoTransform transform = aesAlg.CreateEncryptor(key, counterBlock);
                 transform.TransformBlock(counterBlock, 0, blockSizeInBytes, encryptedCounterBlock, 0);
 
-                // XOR the encrypted counter block with the respective bytes to decrypt
+                // XOR the encrypted counter block with the respective bytes to encrypt
                 int j;
                 for (j = 0; j < blockSizeInBytes; j++)
                 {
-                    decryptedBytes[(i * blockSizeInBytes) + j] = 
-                        (byte)(encryptedCounterBlock[j] | bytesToDecrypt[j]);
+                    encryptedBytes[(i * blockSizeInBytes) + j] = 
+                        (byte)(encryptedCounterBlock[j] ^ 
+                            bytesToEncrypt[(i * blockSizeInBytes) + j]);
                 }
                 // j is now set to blockSizeInBytes.
 
@@ -74,22 +90,23 @@ namespace WiFiMonitorClassLibrary.Cryptography
                 while(++counterBlock[--j] == 0) { }
             }
 
-            // In case there is any partial block left at the end, decrypt that as well
-            int lastBlockLengthInBytes = bytesToDecrypt.Length % blockSizeInBytes;
-            if (lastBlockLengthInBytes != 0)
+            // In case there is any partial block left at the end, encrypt that as well
+            int lastBlockLengthInBytes = bytesToEncrypt.Length % blockSizeInBytes;
+            if (lastBlockLengthInBytes > 0)
             {
                 using ICryptoTransform transform = aesAlg.CreateEncryptor(key, counterBlock);
                 transform.TransformBlock(
-                    counterBlock, 0, lastBlockLengthInBytes, encryptedCounterBlock, 0);
+                    counterBlock, 0, blockSizeInBytes, encryptedCounterBlock, 0);
 
                 for (int j = 0; j < lastBlockLengthInBytes; j++)
                 {
-                    decryptedBytes[(bytesToDecrypt.Length - lastBlockLengthInBytes) + j] =
-                        (byte)(encryptedCounterBlock[j] | bytesToDecrypt[j]);
+                    encryptedBytes[(bytesToEncrypt.Length - lastBlockLengthInBytes) + j] =
+                        (byte)(encryptedCounterBlock[j] ^ 
+                            bytesToEncrypt[(bytesToEncrypt.Length - lastBlockLengthInBytes) + j]);
                 }
             }
 
-            return decryptedBytes;
+            return encryptedBytes;
         }
         /// <summary>
         /// Password-Based Key Derivation Function 2, used among others by WPA2 to derive the PSK
@@ -109,9 +126,9 @@ namespace WiFiMonitorClassLibrary.Cryptography
         /// <param name="keyLengthInBytes">
         /// The length of the derived key in bytes, 32 (representing 256 bits) in the case of WPA2.
         /// </param>
-        /// <returns></returns>
+        /// <returns>The derived key.</returns>
         public static byte[] PBKDF2(
-            string password, 
+            byte[] password, 
             byte[] salt, 
             int numberOfIterations, 
             int keyLengthInBytes)
@@ -175,7 +192,7 @@ namespace WiFiMonitorClassLibrary.Cryptography
                 hashResult.CopyTo(resultBytes, i * 20);
             }
 
-            return resultBytes[0..((int)n - 1)];
+            return resultBytes[0..(int)n];
         }
     }
 }
