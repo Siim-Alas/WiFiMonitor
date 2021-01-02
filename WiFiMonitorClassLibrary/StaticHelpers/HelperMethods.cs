@@ -15,25 +15,25 @@ namespace WiFiMonitorClassLibrary.StaticHelpers
         private static extern int memcmpWindows(byte[] b1, byte[] b2, int count);
 
         /// <summary>
-        /// A wrapper for memcmp in C#. Numerically compares two buffers of memory. 
-        /// The buffers are compared up to the end of buffer1.
+        /// A wrapper for memcmp in C#. Numerically compares two buffers of memory.
         /// </summary>
         /// <param name="buffer1">The first buffer.</param>
         /// <param name="buffer2">The second buffer</param>
+        /// <param name="count">The amount of bytes to compare.</param>
         /// <returns>
         /// Returns 0 if the buffers are equal, < 0 if buffer1 is less than buffer2, 
         /// and > 0 if buffer1 is greater than buffer2.
         /// </returns>
-        public static int CompareBuffers(byte[] buffer1, byte[] buffer2)
+        public static int CompareBuffers(byte[] buffer1, byte[] buffer2, int count)
         {
             int result;
             if (Environment.OSVersion.Platform == PlatformID.Unix)
             {
-                result = memcmpUnix(buffer1, buffer2, buffer1.Length);
+                result = memcmpUnix(buffer1, buffer2, count);
             }
             else 
             {
-                result = memcmpWindows(buffer1, buffer2, buffer1.Length);
+                result = memcmpWindows(buffer1, buffer2, count);
             }
             return result;
         }
@@ -45,7 +45,7 @@ namespace WiFiMonitorClassLibrary.StaticHelpers
         /// <param name="buffer2">The second buffer</param>
         /// <param name="lesserBuffer">The numerically lesser buffer.</param>
         /// <param name="greaterBuffer">The numarically greater buffer.</param>
-         /// <returns>
+        /// <returns>
         /// Returns 0 if the buffers are equal, < 0 if buffer1 is less than buffer2, 
         /// and > 0 if buffer1 is greater than buffer2.
         /// </returns>
@@ -55,7 +55,7 @@ namespace WiFiMonitorClassLibrary.StaticHelpers
             out byte[] lesserBuffer, 
             out byte[] greaterBuffer)
         {
-            int result = CompareBuffers(buffer1, buffer2);
+            int result = CompareBuffers(buffer1, buffer2, buffer1.Length);
             if (result < 0)
             {
                 lesserBuffer = buffer1;

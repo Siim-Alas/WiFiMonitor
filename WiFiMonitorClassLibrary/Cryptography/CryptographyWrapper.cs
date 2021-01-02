@@ -26,14 +26,15 @@ namespace WiFiMonitorClassLibrary.Cryptography
         /// consists of encrypting the encrypted byte array again with the same initial counter
         /// and key used during encryption.
         /// </summary>
-        /// <param name="bytesToEncrypt">The byte array to be encrypted.</param>
+        /// <param name="bytesToEncrypt">
+        /// The byte array that will get encrypted.
+        /// </param>
         /// <param name="initialCounter">
         /// The first block used during encryption, which has to be equal in length to the block
         /// size used during encryption (128 bits or 16 bytes for CCMP).
         /// </param>
         /// <param name="key">The key used during encryption.</param>
-        /// <returns>The encrypted byte array.</returns>
-        public static byte[] AESCounterModeEncryptBytes(
+        public static void AESCounterModeEncryptBytes(
             byte[] bytesToEncrypt,
             byte[] initialCounter,
             byte[] key)
@@ -56,8 +57,7 @@ namespace WiFiMonitorClassLibrary.Cryptography
                     nameof(initialCounter));
             }
 
-            byte[] counterBlock = new byte[128 / 8];
-            byte[] encryptedBytes = new byte[bytesToEncrypt.Length];
+            byte[] counterBlock = new byte[blockSizeInBytes];
             byte[] encryptedCounterBlock = new byte[blockSizeInBytes];
 
             initialCounter.CopyTo(counterBlock, 0);
@@ -75,13 +75,12 @@ namespace WiFiMonitorClassLibrary.Cryptography
                 using ICryptoTransform transform = aesAlg.CreateEncryptor(key, counterBlock);
                 transform.TransformBlock(counterBlock, 0, blockSizeInBytes, encryptedCounterBlock, 0);
 
-                // XOR the encrypted counter block with the respective bytes to encrypt
+                // XOR the current block of the bytes to encrypt with the encrypted counter block
                 int j;
+                int offset = i * blockSizeInBytes;
                 for (j = 0; j < blockSizeInBytes; j++)
                 {
-                    encryptedBytes[(i * blockSizeInBytes) + j] = 
-                        (byte)(encryptedCounterBlock[j] ^ 
-                            bytesToEncrypt[(i * blockSizeInBytes) + j]);
+                    bytesToEncrypt[offset + j] ^= encryptedCounterBlock[j];
                 }
                 // j is now set to blockSizeInBytes.
 
@@ -98,15 +97,12 @@ namespace WiFiMonitorClassLibrary.Cryptography
                 transform.TransformBlock(
                     counterBlock, 0, blockSizeInBytes, encryptedCounterBlock, 0);
 
+                int offset = bytesToEncrypt.Length - lastBlockLengthInBytes;
                 for (int j = 0; j < lastBlockLengthInBytes; j++)
                 {
-                    encryptedBytes[(bytesToEncrypt.Length - lastBlockLengthInBytes) + j] =
-                        (byte)(encryptedCounterBlock[j] ^ 
-                            bytesToEncrypt[(bytesToEncrypt.Length - lastBlockLengthInBytes) + j]);
+                    bytesToEncrypt[offset + j] ^= encryptedCounterBlock[j];
                 }
             }
-
-            return encryptedBytes;
         }
         /// <summary>
         /// Password-Based Key Derivation Function 2, used among others by WPA2 to derive the PSK
@@ -118,7 +114,7 @@ namespace WiFiMonitorClassLibrary.Cryptography
         /// Access Point (AP) to which the Station (STA) is connecting.
         /// </param>
         /// <param name="salt">
-        /// The "cryptographic salt" used to derive the key, the bssid in the case of WPA2.
+        /// The "cryptographic salt" used to derive the key, the SSID in the case of WPA2.
         /// </param>
         /// <param name="numberOfIterations">
         /// The number of iterations performed by the function, 4096 in the case of WPA2.
@@ -152,7 +148,13 @@ namespace WiFiMonitorClassLibrary.Cryptography
                 // Use System.Reflection to set the private field "_salt" on the encryptor
                 FieldInfo saltFieldInfo = typeof(Rfc2898DeriveBytes).GetField(
                     "_salt", BindingFlags.NonPublic | BindingFlags.Instance);
-                saltFieldInfo.SetValue(encryptor, salt);
+
+                // The salt value is padded with 4 bytes for the counter in the constructor
+                byte[] saltValue = new byte[salt.Length + sizeof(uint)];
+                salt.CopyTo(saltValue, 0);
+
+                // Set the field value
+                saltFieldInfo.SetValue(encryptor, saltValue);
 
                 // Now that the encryptor has the proper salt, get the bytes as usual
                 return encryptor.GetBytes(keyLengthInBytes);

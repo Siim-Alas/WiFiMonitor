@@ -1,5 +1,4 @@
 using PacketDotNet.Ieee80211;
-using System;
 using System.Text;
 using WiFiMonitorClassLibrary.Parsing;
 using WiFiMonitorClassLibrary.StaticHelpers;
@@ -16,41 +15,39 @@ namespace WiFiMonitorClassLibrary.Cryptography
         /// </summary>
         private readonly static byte _RSNFlags = 0b_0101_1001;
         /// <summary>
-        /// Decrypts a PacketDotNet IEEE 802.11 DataFrame (containing one MPDU)
+        /// Tries to decrypt a PacketDotNet IEEE 802.11 DataFrame (containing one MPDU)
         /// using CCMP decryption.
         /// </summary>
-        /// <param name="frameToDecrypt">The data frame containing the data to decrypt.</param>
-        /// <param name="pairwiseTemporalKey">
-        /// The Pairwise Temporal Key (PTK) established between the sender and the destination.
+        /// <param name="dataFrame">The data frame containing the data to decrypt.</param>
+        /// <param name="pairwiseTransientKey">
+        /// The Pairwise Transient Key (PTK) established between the sender and the destination.
         /// </param>
         /// <returns>
-        /// The decrypted data from the body of the frame provided. Note that this includes
-        /// both the original data of the frame and the 64-bit (8-byte) MIC appended to it.
+        /// The decrypted data from the body of the frame provided, if it can be decrypted. 
+        /// Otherwies, null. Note that this includes both the original data of the frame and 
+        /// the 64-bit (8-byte) MIC appended to it.
         /// </returns>
-        public static byte[] CCMPDecryptDataFrame(
-            DataFrame frameToDecrypt, 
-            byte[] pairwiseTemporalKey)
+        public static byte[] CCMPTryDecryptDataFrame(
+            DataFrame dataFrame, 
+            byte[] pairwiseTransientKey)
         {
-            if (frameToDecrypt?.PayloadData == null)
+            if (dataFrame?.PayloadData == null)
             {
-                throw new ArgumentNullException(
-                    "The PacketDotNet IEEE 802.11 data frame or its PayloadData was null.", 
-                    nameof(frameToDecrypt));
+                // The frame or its PayloadData was null
+                return null;
             }
-            if (pairwiseTemporalKey == null)
+            if (pairwiseTransientKey == null)
             {
-                throw new ArgumentNullException(
-                    "The Pairwise Temporal Key (PTK) provided was null",
-                    nameof(pairwiseTemporalKey));
+                // The pairwise transient key was null
+                return null;
             }
-            if (frameToDecrypt.FrameControl.Protected == false)
+            if (dataFrame.FrameControl.Protected == false)
             {
-                System.Console.WriteLine("Returning unencrypted data");
-                return frameToDecrypt.PayloadData;
+                return dataFrame.PayloadData;
             }
 
             byte priority;
-            if (frameToDecrypt is QosDataFrame qosDataFrame)
+            if (dataFrame is QosDataFrame qosDataFrame)
             {
                 // Get the first 4-bit subfield (Traffic Identifier) of the QoS Control field
                 // in the IEEE 802.11 MAC header
@@ -63,25 +60,26 @@ namespace WiFiMonitorClassLibrary.Cryptography
 
             // The CCMP Temporal Key (TK) used for encryption is the last 128 bits (16 bytes) 
             // of the 384-bit (48-byte) PTK
-            byte[] dataEncryptionKey = pairwiseTemporalKey[^16..];
+            byte[] dataEncryptionKey = pairwiseTransientKey[32..48];
 
-            CCMPHeader ccmpHeader = new CCMPHeader(frameToDecrypt);
+            CCMPHeader ccmpHeader = new CCMPHeader(dataFrame);
+
             // Everything from right after the CCMP header up until the FCS is encrypted
-            byte[] encryptedSection = 
-                frameToDecrypt.Bytes[(frameToDecrypt.FrameSize + ccmpHeader.Bytes.Length)..^4];
+            byte[] originalDataAndMIC = 
+                dataFrame.Bytes[(dataFrame.FrameSize + 8)..^4];
 
             byte[] nonce = Generate104BitNonce(
                 priority, 
-                frameToDecrypt.SourceAddress.GetAddressBytes(), 
+                dataFrame.SourceAddress.GetAddressBytes(), 
                 ccmpHeader.PacketNumber);
 
             byte[] initialCounter = GenerateCCMPInitialCounter(nonce);
 
             // With the AES Counter (AES-CTR) mode, encryption and decryption are identical
-            byte[] decryptedBytes = CryptographyWrapper.AESCounterModeEncryptBytes(
-                encryptedSection, initialCounter, dataEncryptionKey);
+            CryptographyWrapper.AESCounterModeEncryptBytes(
+                originalDataAndMIC, initialCounter, dataEncryptionKey);
 
-            return decryptedBytes;
+            return originalDataAndMIC;
         }
         /// <summary>
         /// Generates the 104-bit (13-byte) "number used only once" used in the CCMP encryption 
@@ -101,7 +99,7 @@ namespace WiFiMonitorClassLibrary.Cryptography
             byte[] nonce = new byte[104 / 8];
             nonce[0] = priority;
             sourceMACAddress.CopyTo(nonce, 1);
-            packetNumber.CopyTo(nonce, 7); // Priority length (1 byte) + MAC address length (6 bytes)
+            packetNumber.CopyTo(nonce, 1 + 6); // Priority length + MAC address length
             return nonce;
         }
         /// <summary>
@@ -119,12 +117,10 @@ namespace WiFiMonitorClassLibrary.Cryptography
         /// <returns>The 128-bit (16-byte) CCMP initial counter.</returns>
         private static byte[] GenerateCCMPInitialCounter(byte[] nonce)
         {
-            byte[] ctr = new byte[] { 0x00, 0x01 }; // 1 as an unsigned 16-bit (2-byte) integer
-
             byte[] counter = new byte[128 / 8];
             counter[0] = _RSNFlags;
             nonce.CopyTo(counter, 1);
-            ctr.CopyTo(counter, counter.Length - 3);
+            counter[^1] = 1; // The last 2 bytes of the counter are 1 as a 16-bit unsigned int
 
             return counter;
         }
@@ -133,17 +129,19 @@ namespace WiFiMonitorClassLibrary.Cryptography
         /// PMK is used for calculating the Pairwise Temporal Key (PTK), which is the actual
         /// key used for encrypting the frames.
         /// </summary>
-        /// <param name="accessPointBSSID">The BSSID of the AP.</param>
-        /// <param name="accessPointPassword">The password of the AP.</param>
+        /// <param name="password">The password of the AP.</param>
+        /// <param name="ssid">The SSID of the AP.</param>
         /// <returns>The PMK.</returns>
         public static byte[] GeneratePairwiseMasterKey(
-            byte[] accessPointBSSID,
-            string accessPointPassword)
+            string password,
+            string ssid)
         {
-            byte[] password = Encoding.UTF8.GetBytes(accessPointPassword);
+            byte[] passwordBytes = Encoding.ASCII.GetBytes(password);
+            byte[] saltBytes = Encoding.ASCII.GetBytes(ssid);
+
             byte[] pairwiseMasterKey = CryptographyWrapper.PBKDF2(
-                password, 
-                accessPointBSSID, 
+                passwordBytes, 
+                saltBytes, 
                 4096, 
                 32);
 
@@ -176,21 +174,22 @@ namespace WiFiMonitorClassLibrary.Cryptography
             // Nonce1 has to be numerically less than nonce2.
             HelperMethods.CompareBuffers(nonceA, nonceB, out byte[] nonce1, out byte[] nonce2);
 
-            byte[] specificData = new byte[MAC1.Length + MAC2.Length + nonce1.Length + nonce2.Length];
+            // MAC addresses are 6 bytes and Nonces are 32 bytes long
+            byte[] specificData = new byte[6 + 6 + 32 + 32];
             MAC1.CopyTo(specificData, 0);
-            MAC2.CopyTo(specificData, MAC1.Length);
-            nonce1.CopyTo(specificData, MAC1.Length + MAC2.Length);
-            nonce2.CopyTo(specificData, MAC1.Length + MAC2.Length + nonce1.Length);
+            MAC2.CopyTo(specificData, 6);
+            nonce1.CopyTo(specificData, 6 + 6);
+            nonce2.CopyTo(specificData, 6 + 6 + 32);
 
             byte[] specificText = Encoding.UTF8.GetBytes("Pairwise key expansion");
 
-            byte[] temporalKey = CryptographyWrapper.PRFn(
+            byte[] pairwiseTransientKey = CryptographyWrapper.PRFn(
                 CryptographyWrapper.PRFBitValues.bit384,
                 pairwiseMasterKey,
                 specificText, 
                 specificData);
 
-            return temporalKey;
+            return pairwiseTransientKey;
         }
     }
 }

@@ -35,10 +35,10 @@ namespace WiFiMonitorClassLibrary.Monitoring
         /// </summary>
         /// <param name="bssid">The BSSID of the access point.</param>
         /// <param name="password">The password of the access point.</param>
-        public void AddPassword(string bssid, string password)
+        public void AddPassword(string bssid, string ssid, string password)
         {
             PhysicalAddress physicalAddressBSSID = PhysicalAddress.Parse(bssid);
-            AddPassword(physicalAddressBSSID, password);
+            AddPassword(physicalAddressBSSID, ssid, password);
         }
         /// <summary>
         /// Adds a Pairwise Master Key (PMK) to the access point with the specified BSSID.
@@ -46,11 +46,12 @@ namespace WiFiMonitorClassLibrary.Monitoring
         /// create other keys used in encryption.
         /// </summary>
         /// <param name="bssid">The BSSID of the access point.</param>
+        /// <param name="ssid">The SSID of the access point.</param>
         /// <param name="password">The password of the access point.</param>
-        public void AddPassword(PhysicalAddress bssid, string password)
+        public void AddPassword(PhysicalAddress bssid, string ssid, string password)
         {
             byte[] pmk = 
-                WPA2CryptographyTools.GeneratePairwiseMasterKey(bssid.GetAddressBytes(), password);
+                WPA2CryptographyTools.GeneratePairwiseMasterKey(password, ssid);
             if (AccessPoints.ContainsKey(bssid) == false)
             {
                 AccessPoints[bssid] = new AccessPoint(bssid);
@@ -73,111 +74,35 @@ namespace WiFiMonitorClassLibrary.Monitoring
             out AccessPoint accessPoint,
             out Station station)
         {
-            /*
-            PhysicalAddress destinationAddress = dataFrame.DestinationAddress;
-            PhysicalAddress sourceAddress = dataFrame.SourceAddress;
-
-            if (AccessPoints.TryGetValue(destinationAddress, out accessPoint))
-            {
-                if (accessPoint.Stations.TryGetValue(sourceAddress, out station) == false)
-                {
-                    // The access point is recognized, but the station is not
-                    station = new Station();
-                    accessPoint.Stations[sourceAddress] = station;
-                }
-                // Both are recognized, so nothing needs to be done
-                return true;
-            }
-            else if (AccessPoints.TryGetValue(sourceAddress, out accessPoint))
-            {
-                if (accessPoint.Stations.TryGetValue(destinationAddress, out station) == false)
-                {
-                    // The access point is recognized, but the station is not
-                    station = new Station();
-                    accessPoint.Stations[destinationAddress] = station;
-                }
-                // Both are recognized, so nothing needs to be done
-                return false;
-            }
-            else
-            {
-                // The access point was not recognized, so both it and the station
-                // need to be added
-                station = new Station();
-
-                if (dataFrame.FrameControl.ToDS)
-                {
-                    // The destination is an access point
-                    accessPoint = new AccessPoint(destinationAddress);
-                    AccessPoints[destinationAddress] = accessPoint;
-                    AccessPoints[destinationAddress].Stations[sourceAddress] = station;
-
-                    return true;
-                }
-                else 
-                {
-                    // The source is an access point
-                    accessPoint = new AccessPoint(sourceAddress);
-                    AccessPoints[sourceAddress] = accessPoint;
-                    AccessPoints[sourceAddress].Stations[destinationAddress] = station;
-
-                    return false;
-                }
-            }
-            */
+            PhysicalAddress bssid = dataFrame.BssId;
             PhysicalAddress destAddress = dataFrame.DestinationAddress;
             PhysicalAddress sourceAddress = dataFrame.SourceAddress;
 
-            if (AccessPoints.TryGetValue(destAddress, out accessPoint))
+            if (AccessPoints.TryGetValue(bssid, out accessPoint) == false)
             {
-                if (Stations.TryGetValue(sourceAddress, out station) == false)
-                {
-                    // No station with the sourceAddress was found, so a new one is created
-                    station = new Station();
-                    Stations[sourceAddress] = station;
-                }
-                // The destination is a known access point
-                return true;
+                accessPoint = new AccessPoint(bssid);
+                AccessPoints[bssid] = accessPoint;
             }
-            else if (AccessPoints.TryGetValue(sourceAddress, out accessPoint))
+
+            if (Stations.TryGetValue(destAddress, out station))
             {
-                if (Stations.TryGetValue(destAddress, out station) == false)
-                {
-                    // No station with the destAddress was found, so a new one is created
-                    station = new Station();
-                    Stations[destAddress] = station;
-                }
-                // The source is a known access point
-                return false;
-            }
-            else if (Stations.TryGetValue(destAddress, out station))
-            {
-                // The source is an unknown access point, so a new one is created
-                accessPoint = new AccessPoint(sourceAddress);
-                AccessPoints[sourceAddress] = accessPoint;
                 return false;
             }
             else if (Stations.TryGetValue(sourceAddress, out station))
             {
-                // The destination is an unknown access point, so a new one is created
-                accessPoint = new AccessPoint(destAddress);
-                AccessPoints[destAddress] = accessPoint;
                 return true;
             }
             else
             {
                 station = new Station();
-                if (dataFrame.FrameControl.ToDS)
+                if ((dataFrame.FrameControl.ToDS == true) && 
+                    (dataFrame.FrameControl.FromDS == false))
                 {
-                    accessPoint = new AccessPoint(destAddress);
-                    AccessPoints[destAddress] = accessPoint;
                     Stations[sourceAddress] = station;
                     return true;
                 }
                 else 
                 {
-                    accessPoint = new AccessPoint(sourceAddress);
-                    AccessPoints[sourceAddress] = accessPoint;
                     Stations[destAddress] = station;
                     return false;
                 }

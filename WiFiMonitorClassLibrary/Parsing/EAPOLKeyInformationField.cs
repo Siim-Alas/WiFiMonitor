@@ -194,7 +194,7 @@ namespace WiFiMonitorClassLibrary.Parsing
             {
                 return false;
             }
-            return (HelperMethods.CompareBuffers(Bytes, other.Bytes) == 0);
+            return (HelperMethods.CompareBuffers(Bytes, other.Bytes, Bytes.Length) == 0);
         }
         public static bool operator==(EAPOLKeyInformationField lhs, EAPOLKeyInformationField rhs)
         {

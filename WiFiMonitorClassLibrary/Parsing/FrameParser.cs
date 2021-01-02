@@ -111,7 +111,9 @@ namespace WiFiMonitorClassLibrary.Parsing
                 return null;
             }
             if (HelperMethods.CompareBuffers(
-                    _IEEE8021XAuthHeader, data[0.._IEEE8021XAuthHeader.Length]) != 0)
+                    _IEEE8021XAuthHeader, 
+                    data[0.._IEEE8021XAuthHeader.Length], 
+                    _IEEE8021XAuthHeader.Length) != 0)
             {
                 // The frame is not an IEEE 802.1X Authentication frame (invalid header)
                 // Console.WriteLine("invalid header");

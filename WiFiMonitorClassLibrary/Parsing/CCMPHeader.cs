@@ -3,24 +3,42 @@ using System;
 
 namespace WiFiMonitorClassLibrary.Parsing
 {
+    /// <summary>
+    /// A byte array wrapper which simplifies reading CCMP header fields.
+    /// </summary>
     public readonly struct CCMPHeader
     {
+        /// <summary>
+        /// Constructs a new CCMP header from the bytes of a PacketDonNet IEEE 802.11 MacFrame.
+        /// </summary>
         public CCMPHeader(MacFrame frame)
         {
             // The CCMP header is the first 8 (unencrypted) bytes following the MAC header of the frame.
             Bytes = new byte[8];
             Array.Copy(frame.Bytes, frame.FrameSize, Bytes, 0, Bytes.Length);
-
-            // The 6-byte packet number makes up the first two as well as the last four bytes of the CCMP header.
-            PacketNumber = new byte[6];
-            Array.Copy(Bytes, 0, PacketNumber, 0, 2);
-            Array.Copy(Bytes, 4, PacketNumber, 2, 4);
-
-            // The 2 key ID bits are the last two bits of the 4-th byte (index 3) of the CCMP header.
-            KeyID = (byte)(Bytes[3] & 0b_0000_0011); // C# binary notation
         }
         public readonly byte[] Bytes;
-        public readonly byte[] PacketNumber;
-        public readonly byte KeyID;
+        /// <summary>
+        /// The 6-byte packet number makes up the first 2 as well as the last 4 bytes of the
+        /// CCMP header. It is used in constructing the "number used only once" (Nonce) used
+        /// both in MIC computation and data encryption with AES Counter (CTR) mode.
+        /// </summary>
+        public byte[] PacketNumber
+        {
+            get 
+            {
+                byte[] packetNumber = new byte[6];
+                Array.Copy(Bytes, 0, packetNumber, 0, 2);
+                Array.Copy(Bytes, 4, packetNumber, 2, 4);
+                return packetNumber;
+            }
+        }
+        /// <summary>
+        /// The 2-bit Key Identifier is the last 2 bits of byte 3 (zero based) of the CCMP header.
+        /// </summary>
+        public byte KeyID
+        {
+            get { return (byte)(Bytes[3] & 0b_0000_0011); }
+        }
     }
 }
