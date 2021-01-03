@@ -174,12 +174,11 @@ namespace WiFiMonitorClassLibrary.Cryptography
             // Nonce1 has to be numerically less than nonce2.
             HelperMethods.CompareBuffers(nonceA, nonceB, out byte[] nonce1, out byte[] nonce2);
 
-            // MAC addresses are 6 bytes and Nonces are 32 bytes long
-            byte[] specificData = new byte[6 + 6 + 32 + 32];
+            byte[] specificData = new byte[MAC1.Length + MAC2.Length + nonce1.Length + nonce2.Length];
             MAC1.CopyTo(specificData, 0);
-            MAC2.CopyTo(specificData, 6);
-            nonce1.CopyTo(specificData, 6 + 6);
-            nonce2.CopyTo(specificData, 6 + 6 + 32);
+            MAC2.CopyTo(specificData, MAC1.Length);
+            nonce1.CopyTo(specificData, MAC1.Length + MAC2.Length);
+            nonce2.CopyTo(specificData, MAC1.Length + MAC2.Length + nonce1.Length);
 
             byte[] specificText = Encoding.UTF8.GetBytes("Pairwise key expansion");
 

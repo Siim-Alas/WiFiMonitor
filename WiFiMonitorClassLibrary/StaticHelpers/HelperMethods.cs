@@ -9,45 +9,44 @@ namespace WiFiMonitorClassLibrary.StaticHelpers
     public static class HelperMethods
     {
         [DllImport("libc", EntryPoint = "memcmp", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int memcmpUnix(byte[] b1, byte[] b2, int count);
+        private static extern int MemcmpUnix(byte[] b1, byte[] b2, int count);
 
         [DllImport("msvcrt.dll", EntryPoint = "memcmp", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int memcmpWindows(byte[] b1, byte[] b2, int count);
+        private static extern int MemcmpWindows(byte[] b1, byte[] b2, int count);
 
         /// <summary>
-        /// A wrapper for memcmp in C#. Numerically compares two buffers of memory.
+        /// A C# wrapper for memcmp. Numerically compares two buffers of memory.
         /// </summary>
-        /// <param name="buffer1">The first buffer.</param>
-        /// <param name="buffer2">The second buffer</param>
-        /// <param name="count">The amount of bytes to compare.</param>
+        /// <param name="buffer1">The first buffer to compare.</param>
+        /// <param name="buffer2">The second buffer to compare.</param>
+        /// <param name="count">The amount of bytes to compare from both buffers.</param>
         /// <returns>
-        /// Returns 0 if the buffers are equal, < 0 if buffer1 is less than buffer2, 
-        /// and > 0 if buffer1 is greater than buffer2.
+        /// 0 if the buffers are equal. < 0 if buffer1 is less than buffer2, > 0 if buffer1
+        /// is greater than buffer2.
         /// </returns>
         public static int CompareBuffers(byte[] buffer1, byte[] buffer2, int count)
         {
             int result;
             if (Environment.OSVersion.Platform == PlatformID.Unix)
             {
-                result = memcmpUnix(buffer1, buffer2, count);
+                result = MemcmpUnix(buffer1, buffer2, count);
             }
             else 
             {
-                result = memcmpWindows(buffer1, buffer2, count);
+                result = MemcmpWindows(buffer1, buffer2, count);
             }
             return result;
         }
         /// <summary>
-        /// A wrapper of memcmp in C#. Numerically compares two buffers of memory. 
-        /// The buffers are compared up to the end of buffer1.
+        /// A C# wrapper for memcmp. Numerically compares two buffers of memory.
         /// </summary>
-        /// <param name="buffer1">The first buffer.</param>
-        /// <param name="buffer2">The second buffer</param>
+        /// <param name="buffer1">The first buffer to compare.</param>
+        /// <param name="buffer2">The second buffer to compare.</param>
         /// <param name="lesserBuffer">The numerically lesser buffer.</param>
-        /// <param name="greaterBuffer">The numarically greater buffer.</param>
+        /// <param name="greaterBuffer">The numerically greater buffer.</param>
         /// <returns>
-        /// Returns 0 if the buffers are equal, < 0 if buffer1 is less than buffer2, 
-        /// and > 0 if buffer1 is greater than buffer2.
+        /// 0 if the buffers are equal. < 0 if buffer1 is less than buffer2, > 0 if buffer1
+        /// is greater than buffer2.
         /// </returns>
         public static int CompareBuffers(
             byte[] buffer1, 
