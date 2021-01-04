@@ -178,8 +178,9 @@ namespace WiFiMonitorClassLibrary.Cryptography
             byte[] specificText, 
             byte[] specificData)
         {
-            // n will never be a multiple of 20 bytes
-            byte[] resultBytes = new byte[20 * (((int)n / 20) + 1)];
+            const int hashLength = 20;
+
+            byte[] resultBytes = new byte[(int)n];
             byte[] argumentBytes = new byte[specificText.Length + 1 + specificData.Length + 1];
             byte[] hashResult;
 
@@ -187,14 +188,25 @@ namespace WiFiMonitorClassLibrary.Cryptography
             specificData.CopyTo(argumentBytes, specificText.Length + 1);
 
             using HMACSHA1 sha1 = new HMACSHA1(secretKey);
-            for (byte i = 0; i * 20 < resultBytes.Length; i++)
+            // Integer division rounds towards zero, so this will omit any partial block at the end
+            for (byte i = 0; i < resultBytes.Length / hashLength; i++)
             {
                 argumentBytes[^1] = i;
                 hashResult = sha1.ComputeHash(argumentBytes);
-                hashResult.CopyTo(resultBytes, i * 20);
+                hashResult.CopyTo(resultBytes, i * hashLength);
             }
+            // Note that since n will never be a multiple of 20, there is no need to check
+            // if the last block length is zero
+            int lastBlockLengthInBytes = resultBytes.Length % hashLength;
 
-            return resultBytes[0..(int)n];
+            argumentBytes[^1]++;
+            hashResult = sha1.ComputeHash(argumentBytes);
+            Array.Copy(
+                hashResult, 0, 
+                resultBytes, resultBytes.Length - lastBlockLengthInBytes, 
+                lastBlockLengthInBytes);
+
+            return resultBytes;
         }
     }
 }

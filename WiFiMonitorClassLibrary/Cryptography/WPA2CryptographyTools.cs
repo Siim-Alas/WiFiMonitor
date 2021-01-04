@@ -10,17 +10,21 @@ namespace WiFiMonitorClassLibrary.Cryptography
     /// </summary>
     public static class WPA2CryptographyTools
     {
+        private readonly static byte[] _pairwiseKeyExpansionText = 
+            Encoding.ASCII.GetBytes("Pairwise key expansion");
         /// <summary>
         /// The flag (first byte or 8 bits) used in creating the initial RSN CCMP counter.
         /// </summary>
-        private readonly static byte _RSNFlags = 0b_0101_1001;
+        private const byte _RSNFlags = 0b_0101_1001;
         /// <summary>
         /// Tries to decrypt a PacketDotNet IEEE 802.11 DataFrame (containing one MPDU)
         /// using CCMP decryption.
         /// </summary>
         /// <param name="dataFrame">The data frame containing the data to decrypt.</param>
-        /// <param name="pairwiseTransientKey">
-        /// The Pairwise Transient Key (PTK) established between the sender and the destination.
+        /// <param name="temporalKey">
+        /// The 128-bit (16-byte) Temporal Key (TK) used in data encryption. This is the 3-rd
+        /// key contained in the Pairwise Transient Key (PTK) instated between the sender
+        /// and recipient of this frame.
         /// </param>
         /// <returns>
         /// The decrypted data from the body of the frame provided, if it can be decrypted. 
@@ -29,16 +33,21 @@ namespace WiFiMonitorClassLibrary.Cryptography
         /// </returns>
         public static byte[] CCMPTryDecryptDataFrame(
             DataFrame dataFrame, 
-            byte[] pairwiseTransientKey)
+            byte[] temporalKey)
         {
             if (dataFrame?.PayloadData == null)
             {
                 // The frame or its PayloadData was null
                 return null;
             }
-            if (pairwiseTransientKey == null)
+            if (temporalKey == null)
             {
-                // The pairwise transient key was null
+                // The temporal key was null
+                return null;
+            }
+            if (temporalKey.Length != 16)
+            {
+                // The temporal key was not 128 bits or 16 bytes long
                 return null;
             }
             if (dataFrame.FrameControl.Protected == false)
@@ -58,15 +67,12 @@ namespace WiFiMonitorClassLibrary.Cryptography
                 priority = 0;
             }
 
-            // The CCMP Temporal Key (TK) used for encryption is the last 128 bits (16 bytes) 
-            // of the 384-bit (48-byte) PTK
-            byte[] dataEncryptionKey = pairwiseTransientKey[32..48];
-
             CCMPHeader ccmpHeader = new CCMPHeader(dataFrame);
 
             // Everything from right after the CCMP header up until the FCS is encrypted
-            byte[] originalDataAndMIC = 
-                dataFrame.Bytes[(dataFrame.FrameSize + 8)..^4];
+            byte[] originalDataAndMIC = dataFrame.AppendFcs ?
+                dataFrame.Bytes[(dataFrame.FrameSize + 8)..^4] :
+                dataFrame.Bytes[(dataFrame.FrameSize + 8)..];
 
             byte[] nonce = Generate104BitNonce(
                 priority, 
@@ -77,7 +83,7 @@ namespace WiFiMonitorClassLibrary.Cryptography
 
             // With the AES Counter (AES-CTR) mode, encryption and decryption are identical
             CryptographyWrapper.AESCounterModeEncryptBytes(
-                originalDataAndMIC, initialCounter, dataEncryptionKey);
+                originalDataAndMIC, initialCounter, temporalKey);
 
             return originalDataAndMIC;
         }
@@ -89,7 +95,7 @@ namespace WiFiMonitorClassLibrary.Cryptography
         /// The priority of the packet, potentially different for various transmitted data types.
         /// </param>
         /// <param name="sourceMACAddress">The MAC address of the source of the frame.</param>
-        /// <param name="packetNumber">The packet number of the frame</param>
+        /// <param name="packetNumber">The packet number of the frame.</param>
         /// <returns>The Nonce.</returns>
         private static byte[] Generate104BitNonce(
             byte priority, 
@@ -121,7 +127,6 @@ namespace WiFiMonitorClassLibrary.Cryptography
             counter[0] = _RSNFlags;
             nonce.CopyTo(counter, 1);
             counter[^1] = 1; // The last 2 bytes of the counter are 1 as a 16-bit unsigned int
-
             return counter;
         }
         /// <summary>
@@ -170,22 +175,20 @@ namespace WiFiMonitorClassLibrary.Cryptography
         {
             // MAC1 has to be numerically less than MAC2.
             HelperMethods.CompareBuffers(MACA, MACB, out byte[] MAC1, out byte[] MAC2);
-
             // Nonce1 has to be numerically less than nonce2.
             HelperMethods.CompareBuffers(nonceA, nonceB, out byte[] nonce1, out byte[] nonce2);
 
-            byte[] specificData = new byte[MAC1.Length + MAC2.Length + nonce1.Length + nonce2.Length];
+            // The MAC addresses are 6 bytes long and the Nonces are 32 bytes long
+            byte[] specificData = new byte[6 + 6 + 32 + 32];
             MAC1.CopyTo(specificData, 0);
-            MAC2.CopyTo(specificData, MAC1.Length);
-            nonce1.CopyTo(specificData, MAC1.Length + MAC2.Length);
-            nonce2.CopyTo(specificData, MAC1.Length + MAC2.Length + nonce1.Length);
-
-            byte[] specificText = Encoding.UTF8.GetBytes("Pairwise key expansion");
+            MAC2.CopyTo(specificData, 6);
+            nonce1.CopyTo(specificData, 6 + 6);
+            nonce2.CopyTo(specificData, 6 + 6 + 32);
 
             byte[] pairwiseTransientKey = CryptographyWrapper.PRFn(
                 CryptographyWrapper.PRFBitValues.bit384,
                 pairwiseMasterKey,
-                specificText, 
+                _pairwiseKeyExpansionText, 
                 specificData);
 
             return pairwiseTransientKey;

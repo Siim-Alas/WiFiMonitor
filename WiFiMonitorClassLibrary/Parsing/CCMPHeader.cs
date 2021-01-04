@@ -21,15 +21,25 @@ namespace WiFiMonitorClassLibrary.Parsing
         /// <summary>
         /// The 6-byte packet number makes up the first 2 as well as the last 4 bytes of the
         /// CCMP header. It is used in constructing the "number used only once" (Nonce) used
-        /// both in MIC computation and data encryption with AES Counter (CTR) mode.
+        /// both in MIC computation and data encryption with AES Counter (CTR) mode. <br />
+        /// Note that this getter reverses the packet number array contained in the CCMP
+        /// header. The packet number field in the CCMP header is little-endian, but this
+        /// implementation makes it big-endian.
         /// </summary>
         public byte[] PacketNumber
         {
             get 
             {
-                byte[] packetNumber = new byte[6];
-                Array.Copy(Bytes, 0, packetNumber, 0, 2);
-                Array.Copy(Bytes, 4, packetNumber, 2, 4);
+                byte[] packetNumber = new byte[6]
+                {
+                    Bytes[7],
+                    Bytes[6],
+                    Bytes[5],
+                    Bytes[4],
+
+                    Bytes[1],
+                    Bytes[0]
+                };
                 return packetNumber;
             }
         }
@@ -38,7 +48,7 @@ namespace WiFiMonitorClassLibrary.Parsing
         /// </summary>
         public byte KeyID
         {
-            get { return (byte)(Bytes[3] & 0b_0000_0011); }
+            get { return (byte)(Bytes[3] >> 6); }
         }
     }
 }
