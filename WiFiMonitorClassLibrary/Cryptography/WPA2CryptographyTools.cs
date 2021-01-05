@@ -13,10 +13,6 @@ namespace WiFiMonitorClassLibrary.Cryptography
         private readonly static byte[] _pairwiseKeyExpansionText = 
             Encoding.ASCII.GetBytes("Pairwise key expansion");
         /// <summary>
-        /// The flag (first byte or 8 bits) used in creating the initial RSN CCMP counter.
-        /// </summary>
-        private const byte _RSNFlags = 0b_0101_1001;
-        /// <summary>
         /// Tries to decrypt a PacketDotNet IEEE 802.11 DataFrame (containing one MPDU)
         /// using CCMP decryption.
         /// </summary>
@@ -79,12 +75,11 @@ namespace WiFiMonitorClassLibrary.Cryptography
                 dataFrame.SourceAddress.GetAddressBytes(), 
                 ccmpHeader.PacketNumber);
 
-            byte[] initialCounter = GenerateCCMPInitialCounter(nonce);
+            byte[] tag = new byte[8];
 
-            // With the AES Counter (AES-CTR) mode, encryption and decryption are identical
-            CryptographyWrapper.AESCounterModeEncryptBytes(
-                originalDataAndMIC, initialCounter, temporalKey);
-
+            // With the AES CCM mode, encryption and decryption are identical
+            CryptographyWrapper.AESCCMEncryptBytes(
+                originalDataAndMIC, nonce, temporalKey, tag);
             return originalDataAndMIC;
         }
         /// <summary>
@@ -107,27 +102,6 @@ namespace WiFiMonitorClassLibrary.Cryptography
             sourceMACAddress.CopyTo(nonce, 1);
             packetNumber.CopyTo(nonce, 1 + 6); // Priority length + MAC address length
             return nonce;
-        }
-        /// <summary>
-        /// Generates the value of the initial CCMP counter (the first 128-bit block CCMP uses in 
-        /// encrypting the message with AES Counter (CTR) mode). The initial counter is composed
-        /// as follows: <br />
-        /// 1 byte (0) -- RSN flag <br />
-        /// 13 bytes (1-13) -- 104-bit Nonce <br />
-        /// 2 bytes (14-16) -- 1 as a 16-bit unsigned integer (this gets incremented on subsequent
-        /// iterations)
-        /// </summary>
-        /// <param name="nonce">
-        /// The 104-bit (13-byte) "number used only once" used in creating the initial counter.
-        /// </param>
-        /// <returns>The 128-bit (16-byte) CCMP initial counter.</returns>
-        private static byte[] GenerateCCMPInitialCounter(byte[] nonce)
-        {
-            byte[] counter = new byte[128 / 8];
-            counter[0] = _RSNFlags;
-            nonce.CopyTo(counter, 1);
-            counter[^1] = 1; // The last 2 bytes of the counter are 1 as a 16-bit unsigned int
-            return counter;
         }
         /// <summary>
         /// Generates the Pairwise Master Key (PMK) for an Access Point (AP). In WPA2, the

@@ -150,7 +150,7 @@ namespace WiFiMonitorClassLibraryUnitTests.Cryptography
 
             // Act
             byte[] actualDecryptedBody = 
-                WPA2CryptographyTools.CCMPTryDecryptDataFrame(encryptedDataFrame, _tk1);
+                WPA2CryptographyTools.CCMPTryDecryptDataFrame(encryptedDataFrame, _tk8);
             bool decryptedCorrectly = HelperMethods.CompareBuffers(
                 _plaintextData8, actualDecryptedBody, _plaintextData8.Length) == 0;
 

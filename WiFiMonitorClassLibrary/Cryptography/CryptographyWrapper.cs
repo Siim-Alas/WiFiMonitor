@@ -21,88 +21,30 @@ namespace WiFiMonitorClassLibrary.Cryptography
             bit512 = 512 / 8,
         }
         /// <summary>
-        /// Encrypts or decrypts a byte array with the AES Counter (CTR) mode.
+        /// Encrypts or decrypts a byte array with the AES Counter with Cbc-Mac (CCM) mode.
         /// Note that for this algorithm, encryption and decryption are identical. Decryption
-        /// consists of encrypting the encrypted byte array again with the same initial counter
+        /// consists of encrypting the encrypted byte array again with the same nonce
         /// and key used during encryption.
         /// </summary>
         /// <param name="bytesToEncrypt">
         /// The byte array that will get encrypted.
         /// </param>
-        /// <param name="initialCounter">
-        /// The first block used during encryption, which has to be equal in length to the block
-        /// size used during encryption (128 bits or 16 bytes for CCMP).
+        /// <param name="nonce">
+        /// The "number used only once" used during encryption.
         /// </param>
         /// <param name="key">The key used during encryption.</param>
-        public static void AESCounterModeEncryptBytes(
-            byte[] bytesToEncrypt,
-            byte[] initialCounter,
-            byte[] key)
+        /// <param name="tag">The tag generated during encryption.</param>
+        public static void AESCCMEncryptBytes(
+            byte[] bytesToEncrypt, 
+            byte[] nonce, 
+            byte[] key,
+            byte[] tag)
         {
-            // Inspired by https://gist.github.com/hanswolff/8809275
-            if (bytesToEncrypt == null)
-            {
-                throw new ArgumentNullException(
-                    "The bytes to encrypt were null", nameof(bytesToEncrypt));
-            }
-            if (key == null)
-            {
-                throw new ArgumentNullException("The key provided was null", nameof(key));
-            }
-            const int blockSizeInBytes = 128 / 8;
-            if (initialCounter.Length != blockSizeInBytes)
-            {
-                throw new ArgumentException(
-                    "The initialCounter provided isn't 128 bits or 16 bytes long.", 
-                    nameof(initialCounter));
-            }
-
-            byte[] counterBlock = new byte[blockSizeInBytes];
-            byte[] encryptedCounterBlock = new byte[blockSizeInBytes];
-
-            initialCounter.CopyTo(counterBlock, 0);
-
-            using Aes aesAlg = new AesManaged()
-            {
-                // AesManaged defaults to 128-bit block size
-                Mode = CipherMode.ECB,
-                Padding = PaddingMode.None
-            };
-            // Integer division rounds towards zero, so this will omit any partial block at the end
-            for (int i = 0; i < bytesToEncrypt.Length / blockSizeInBytes; i++)
-            {
-                // Encrypt the counter block in ECB mode
-                using ICryptoTransform transform = aesAlg.CreateEncryptor(key, counterBlock);
-                transform.TransformBlock(counterBlock, 0, blockSizeInBytes, encryptedCounterBlock, 0);
-
-                // XOR the current block of the bytes to encrypt with the encrypted counter block
-                int j;
-                int offset = i * blockSizeInBytes;
-                for (j = 0; j < blockSizeInBytes; j++)
-                {
-                    bytesToEncrypt[offset + j] ^= encryptedCounterBlock[j];
-                }
-                // j is now set to blockSizeInBytes.
-
-                // Starting from the last byte in counterBlock, increment the counter by one. 
-                // If the byte overflows, go to the next byte (coming from the end).
-                while(++counterBlock[--j] == 0) { }
-            }
-
-            // In case there is any partial block left at the end, encrypt that as well
-            int lastBlockLengthInBytes = bytesToEncrypt.Length % blockSizeInBytes;
-            if (lastBlockLengthInBytes > 0)
-            {
-                using ICryptoTransform transform = aesAlg.CreateEncryptor(key, counterBlock);
-                transform.TransformBlock(
-                    counterBlock, 0, blockSizeInBytes, encryptedCounterBlock, 0);
-
-                int offset = bytesToEncrypt.Length - lastBlockLengthInBytes;
-                for (int j = 0; j < lastBlockLengthInBytes; j++)
-                {
-                    bytesToEncrypt[offset + j] ^= encryptedCounterBlock[j];
-                }
-            }
+            // Note that this passes the bytesToEncrypt as both the input and output array.
+            // This works, since AES-CTR XOR-s the input array with the encrypted counters,
+            // so this is equivalent to saying bytesToEncrypt[i + j] ^= encryptedCounter[j]
+            using AesCcm ccm = new AesCcm(key);
+            ccm.Encrypt(nonce, bytesToEncrypt, bytesToEncrypt, tag);
         }
         /// <summary>
         /// Password-Based Key Derivation Function 2, used among others by WPA2 to derive the PSK

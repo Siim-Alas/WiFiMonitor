@@ -8,47 +8,36 @@ namespace WiFiMonitorClassLibraryUnitTests.Cryptography
     [TestClass]
     public class CryptographyWrapperUnitTests
     {
-        // AES-CTR test vectors taken from https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
-        // F.5.1 CTR-AES128.Encrypt (from the link)
-        private readonly byte[] _initialCounter = new byte[128 / 8]
+        // AES-CCM test vectors from RFC 3610 https://tools.ietf.org/html/rfc3610
+        // From Packet Vector 1
+        private readonly byte[] _nonce = new byte[13]
         {
-            0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
-            0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff
+            0x00, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00, 0xA0, 
+            0xA1, 0xA2, 0xA3, 0xA4, 0xA5
         };
         private readonly byte[] _ctrKey = new byte[128 / 8]
         {
-            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 
-            0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c
+            0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 
+            0xC8, 0xC9, 0xCA, 0xCB, 0xCC, 0xCD, 0xCE, 0xCF
         };
-        private readonly byte[] _plaintext = new byte[4 * (128 / 8)]
+        private readonly byte[] _plaintext = new byte[]
         {
-            // Block #1
-            0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96,
-            0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
-            // Block #2
-            0xae, 0x2d, 0x8a, 0x57, 0x1e, 0x03, 0xac, 0x9c, 
-            0x9e, 0xb7, 0x6f, 0xac, 0x45, 0xaf, 0x8e, 0x51,
-            // Block #3
-            0x30, 0xc8, 0x1c, 0x46, 0xa3, 0x5c, 0xe4, 0x11, 
-            0xe5, 0xfb, 0xc1, 0x19, 0x1a, 0x0a, 0x52, 0xef,
-            // Block #4
-            0xf6, 0x9f, 0x24, 0x45, 0xdf, 0x4f, 0x9b, 0x17, 
-            0xad, 0x2b, 0x41, 0x7b, 0xe6, 0x6c, 0x37, 0x10
+            // Removed 8-byte header
+            0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+            0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 
+            0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E
         };
-        private readonly byte[] _ciphertext = new byte[4 * (128 / 8)]
+        private readonly byte[] _ciphertext = new byte[]
         {
-            // Block #1
-            0x87, 0x4d, 0x61, 0x91, 0xb6, 0x20, 0xe3, 0x26, 
-            0x1b, 0xef, 0x68, 0x64, 0x99, 0x0d, 0xb6, 0xce,
-            // Block #2
-            0x98, 0x06, 0xf6, 0x6b, 0x79, 0x70, 0xfd, 0xff, 
-            0x86, 0x17, 0x18, 0x7b, 0xb9, 0xff, 0xfd, 0xff,
-            // Block #3
-            0x5a, 0xe4, 0xdf, 0x3e, 0xdb, 0xd5, 0xd3, 0x5e, 
-            0x5b, 0x4f, 0x09, 0x02, 0x0d, 0xb0, 0x3e, 0xab,
-            // Block #4
-            0x1e, 0x03, 0x1d, 0xda, 0x2f, 0xbe, 0x03, 0xd1, 
-            0x79, 0x21, 0x70, 0xa0, 0xf3, 0x00, 0x9c, 0xee
+            // Removed 8-byte header
+            0x58, 0x8C, 0x97, 0x9A, 0x61, 0xC6, 0x63, 0xD2,
+            0xF0, 0x66, 0xD0, 0xC2, 0xC0, 0xF9, 0x89, 0x80, 
+            0x6D, 0x5F, 0x6B, 0x61, 0xDA, 0xC3, 0x84
+            // Removed 8-byte tag
+        };
+        private readonly byte[] _tag = new byte[8]
+        {
+            0x2D, 0xC6, 0x97, 0xE4, 0x11, 0xCA, 0x83, 0xA8
         };
 
         // PBKDF2 HMAC-SHA1 test vectors taken from https://tools.ietf.org/html/rfc6070
@@ -86,76 +75,50 @@ namespace WiFiMonitorClassLibraryUnitTests.Cryptography
             0x15, 0x93, 0x71, 0xf4, 0x5e, 0xb1, 0xbc, 0xb6
         };
 
-
         [TestMethod]
-        public void AESCounterModeEncryptBytes_WithValidInputOfLengthDividibleByBlockSize_EncryptingTwiceShouldResultInNoChange()
+        public void AESCCMEncryptBytes_WithValidCCMPInput_ShouldDecryptCorrectly()
         {
             // Arrange
-            byte[] testBytes = new byte[_plaintext.Length];
-            _plaintext.CopyTo(testBytes, 0);
+            byte[] bytesToDecrypt = new byte[_ciphertext.Length];
+            _ciphertext.CopyTo(bytesToDecrypt, 0);
 
             // Act
-            CryptographyWrapper.AESCounterModeEncryptBytes(testBytes, _initialCounter, _ctrKey);
-            CryptographyWrapper.AESCounterModeEncryptBytes(testBytes, _initialCounter, _ctrKey);
-
-            bool testBytesEqualPlainText = 
-                HelperMethods.CompareBuffers(_plaintext, testBytes, _plaintext.Length) == 0;
+            CryptographyWrapper.AESCCMEncryptBytes(bytesToDecrypt, _nonce, _ctrKey, new byte[8]);
+            bool decryptedCorrectly = 
+                HelperMethods.CompareBuffers(_plaintext, bytesToDecrypt, _plaintext.Length) == 0;
 
             // Assert
-            Assert.IsTrue(testBytesEqualPlainText);
+            Assert.IsTrue(decryptedCorrectly);
         }
         [TestMethod]
-        public void AESCounterModeEncryptBytes_WithValidInputOfLengthDividibleByBlockSize_ShouldEncryptCorrectly()
+        public void AESCCMEncryptBytes_WithValidCCMPInput_ShouldEncryptCorrectly()
         {
             // Arrange
-            byte[] testBytes = new byte[_plaintext.Length];
-            _plaintext.CopyTo(testBytes, 0);
+            byte[] bytesToEncrypt = new byte[_plaintext.Length];
+            _plaintext.CopyTo(bytesToEncrypt, 0);
 
             // Act
-            CryptographyWrapper.AESCounterModeEncryptBytes(testBytes, _initialCounter, _ctrKey);
-
-            bool testBytesEqualCipherText =
-                HelperMethods.CompareBuffers(_ciphertext, testBytes, _ciphertext.Length) == 0;
+            CryptographyWrapper.AESCCMEncryptBytes(bytesToEncrypt, _nonce, _ctrKey, new byte[8]);
+            bool encryptedCorrectly = 
+                HelperMethods.CompareBuffers(_ciphertext, bytesToEncrypt, _ciphertext.Length) == 0;
 
             // Assert
-            Assert.IsTrue(testBytesEqualCipherText);
+            Assert.IsTrue(encryptedCorrectly);
         }
         [TestMethod]
-        public void AESCounterModeEncryptBytes_WithValidInputOfLengthIndvidibleByBlockSize_EncryptingTwiceShouldResultInNoChange()
+        public void AESCCMEncryptBytes_WithValidCCMPInput_ShouldProduceCorrectTag()
         {
             // Arrange
-            int length = _plaintext.Length - 3;
-
-            byte[] testBytes = new byte[length];
-            _plaintext[0..length].CopyTo(testBytes, 0);
-
-            // Act
-            CryptographyWrapper.AESCounterModeEncryptBytes(testBytes, _initialCounter, _ctrKey);
-            CryptographyWrapper.AESCounterModeEncryptBytes(testBytes, _initialCounter, _ctrKey);
-
-            bool testBytesEqualPlainText =
-                HelperMethods.CompareBuffers(_plaintext, testBytes, length) == 0;
-
-            // Assert
-            Assert.IsTrue(testBytesEqualPlainText);
-        }
-        [TestMethod]
-        public void AESCounterModeEncryptBytes_WithValidInputOfLengthIndividibleByBlockSize_ShouldEncryptCorrectly()
-        {
-            // Arrange
-            int length = _plaintext.Length - 3;
-
-            byte[] testBytes = new byte[length];
-            _plaintext[0..length].CopyTo(testBytes, 0);
+            byte[] bytesToEncrypt = new byte[_plaintext.Length];
+            _plaintext.CopyTo(bytesToEncrypt, 0);
+            byte[] tag = new byte[_tag.Length];
 
             // Act
-            CryptographyWrapper.AESCounterModeEncryptBytes(testBytes, _initialCounter, _ctrKey);
-
-            bool testBytesEqualCipherText =
-                HelperMethods.CompareBuffers(_ciphertext, testBytes, length) == 0;
+            CryptographyWrapper.AESCCMEncryptBytes(bytesToEncrypt, _nonce, _ctrKey, tag);
+            bool tagIsCorrect = HelperMethods.CompareBuffers(_tag, tag, _tag.Length) == 0;
 
             // Assert
-            Assert.IsTrue(testBytesEqualCipherText);
+            Assert.IsTrue(tagIsCorrect);
         }
         [TestMethod]
         public void PBKDF2_WithValidInput_ShouldReturnCorrectKey()
