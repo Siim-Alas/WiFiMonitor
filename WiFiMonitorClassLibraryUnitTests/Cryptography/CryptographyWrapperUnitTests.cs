@@ -138,10 +138,9 @@ namespace WiFiMonitorClassLibraryUnitTests.Cryptography
             // Arrange and Act
             byte[] resultBytes = 
                 CryptographyWrapper.PRFn(_length, _prfKey, _prefix, _data);
-            bool resultLengthIsCorrect = resultBytes.Length == (int)_length;
 
             // Assert
-            Assert.IsTrue(resultLengthIsCorrect);
+            Assert.AreEqual((int)_length, resultBytes.Length);
         }
         [TestMethod]
         public void PRFn_WithValidInput_ShouldReturnCorrectBytes()
